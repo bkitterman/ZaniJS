@@ -1,0 +1,14 @@
+# Ignore artifacts:
+build
+coverage
+.prettierignore
+.prettiererrc
+.gitignore
+
+/node_modules
+/public
+/Deprecated
+/src/assets
+
+# Individual Files
+preload.js
