@@ -1,6 +1,12 @@
 // Node Imports
 const fs = require('fs');
 
+// TODO LIST
+/*
+	- Add a debug method (ZaniLog.debug(string message, string source="Zani/DEBUG")) where color = blue 
+*/
+
+
 /**
  * The in-built logging system for ZaniJS for both console and file logging.
  *
@@ -214,6 +220,35 @@ class ZaniLog {
 				if (err) console.log('[ZaniJS]: error appending log file' + err.stack);
 			});
 		}
+	}
+
+	/** Outputs a debug message based on the options object. If consoleLog is true, it will output to the console. 
+	 * If colorful is true, the message source will be blue in console, if supported. This method does not print
+	 * to a file.
+	 * 
+	 * @param {string} message - The variables to print
+	 * @param {string=} source - A source, if requested. '/DEBUG' will be appended to the end.
+	 */
+	debug(message, source) {
+		// Set the source and build message
+		this.setSource(source, 'DEBUG');
+		this.message = `${this.source} ${message}.`;
+
+		// Print to the console, if consoleLog is flagged
+		if (this.options.consoleLog) {
+			if (this.options.colorful) {
+				console.log(`${this.color.blue + this.source + this.color.reset} ${message}`);
+			} else console.log(this.message);
+		}
+	}
+
+	/** If the systemLog flag is enabled, it will print 3 empty lines at the end of the file.
+	 */
+	insertBreak() {
+		if(this.options.systemLog)
+			fs.appendFileSync(this.logFile, '\n\n\n', (err) => {
+				if (err) console.log('[ZaniJS]: error appending log file' + err.stack);
+			});
 	}
 
 	/* -------------------------------------------------------------------------- */
