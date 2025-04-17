@@ -777,3 +777,1235 @@ Attempted to close Test, but is is currently the active database. Please close t
 [Zani/WARNING]: Shutting down.
 [Zani]: Closing database Test.
 [Zani]: Connected to Test at 4/12/2025 18:32:47.
+
+[Test/ERROR]: No collection name provided.
+[Zani]: Connected to Test at 4/12/2025 18:53:31.
+
+[Zani/WARNING]: Shutting down.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 18:53:43.
+[Zani]: Closing database Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 18:54:38.
+[Zani]: Closing database Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 18:54:54.
+[Zani]: Closing database Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 18:56:35.
+[Zani]: Closing database Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:0:25.
+[Zani]: Closing database Test.
+[Zani]: Connected to Test at 4/12/2025 19:1:20.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:1:43.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:2:27.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:2:37.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:3:12.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:3:49.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:4:32.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:11:1.
+[Zani]: Closing database Test.
+
+[CollectionCheck/ERROR]: undefined.jsonl does not exist.
+
+	The collection exists in the meta.json file, but the collection storage file cannot be located. 
+Error locating collection jsonl at C:\Users\User\Documents\hobby project\ZaniJS\src\Test\collections\undefined.jsonl.
+
+[Zani]: Connected to Test at 4/12/2025 19:11:14.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:11:52.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:13:13.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:14:57.
+[Debug]: Active database found.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:15:12.
+[Debug]: Active database found.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:15:20.
+[Debug]: Active database found.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:15:42.
+[Debug]: Active database found.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:15:52.
+[Debug]: Active database found.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:16:28.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:17:42.
+[Zani]: Closing database Test.
+[Zani]: Connected to Test at 4/12/2025 19:17:55.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:18:16.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+
+[CollectionCheck/ERROR]: collectionTest.jsonl does not exist.
+
+	The collection exists in the meta.json file, but the collection storage file cannot be located. 
+Error locating collection jsonl at C:\Users\User\Documents\hobby project\ZaniJS\src\Test\collections\collectionTest.jsonl.
+
+[Zani]: Connected to Test at 4/12/2025 19:18:43.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Connected to Test at 4/12/2025 19:21:12.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+
+[CollectionCheck/ERROR]: collectionTest.jsonl does not exist.
+
+	The collection exists in the meta.json file, but the collection storage file cannot be located. 
+Error locating collection jsonl at C:\Users\User\Documents\hobby project\ZaniJS\src\Test\collections\collectionTest.jsonl.
+
+[Zani]: Connected to Test at 4/12/2025 19:21:22.
+[Zani]: Added collection collectionTest to Test.
+
+[Zani/WARNING]: Shutting down.
+
+[Test/ERROR]: The collection collectionTest already exists.
+[Zani]: Connected to Test at 4/12/2025 19:23:43.
+
+[Zani/WARNING]: Shutting down.
+
+[Test/ERROR]: The collection collectionTest already exists.
+[Zani]: Connected to Test at 4/12/2025 19:24:14.
+
+[Zani/WARNING]: Shutting down.
+
+[Test/ERROR]: The collection collectionTest already exists.
+[Zani]: Connected to Test at 4/12/2025 19:31:14.
+[Test]: Deleted collection collectionTest.
+
+[Zani/WARNING]: Shutting down.
+
+[Test/ERROR]: The collection collectionTest does not exist..
+[Zani]: Connected to Test at 4/12/2025 19:31:35.
+
+[Zani/WARNING]: Shutting down.
+
+[Test/ERROR]: No collection name provided.
+[Zani]: Connected to Test at 4/12/2025 19:31:42.
+
+[Zani/WARNING]: Shutting down.
+
+[Test/ERROR]: No collection name provided.
+[Zani]: Connected to Test at 4/12/2025 19:31:47.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Added collection tester to Test.
+[Zani]: Connected to Test at 4/12/2025 19:41:11.
+
+[Zani/WARNING]: Shutting down.
+
+[Test/ERROR]: The collection tester already exists.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 19:42:10.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Test/ERROR]: The collection tester already exists.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 19:42:41.
+
+[Test/ERROR]: The collection tester already exists.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 19:43:49.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Test/ERROR]: The collection tester already exists.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 19:44:51.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Test/ERROR]: The collection tester already exists.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/12/2025 19:47:5.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+
+[Test/ERROR]: The collection tester already exists.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 19:47:42.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+
+[Test/ERROR]: The collection tester already exists.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/12/2025 19:48:3.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+
+[Test/ERROR]: The collection tester already exists.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/12/2025 19:48:22.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+
+[Test/ERROR]: The collection tester already exists.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/12/2025 19:50:7.
+
+[Zani/WARNING]: Shutting down.
+
+[Test/ERROR]: The collection tester already exists.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/12/2025 19:50:27.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+
+[Test/ERROR]: The collection tester already exists.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 19:50:40.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+
+[Test/ERROR]: The collection tester already exists.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 19:50:57.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+
+[Test/ERROR]: The collection tester already exists.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 19:51:49.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+
+[Test/ERROR]: The collection tester already exists.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/12/2025 19:58:26.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Zani]: Switching database to Test.
+
+[Test/ERROR]: The collection tester already exists.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 19:59:4.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Test/ERROR]: The collection tester already exists.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Zani]: Connected to Test at 4/12/2025 19:59:29.
+
+[Test/ERROR]: The collection tester already exists.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/12/2025 19:59:52.
+[Zani]: Ready - Test.
+[Zani]: Switching database to Test.
+
+[Zani/WARNING]: Shutting down.
+
+[Test/ERROR]: The collection tester already exists.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 20:0:12.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 20:8:40.
+[Zani]: Closing database Test.
+[Zani]: Ready - Test.
+[Zani]: Loading.
+[Zani]: Ready - Test.
+[Zani]: Switching database to Test.
+[Test]: Renamed collection tester to tester2.
+[Zani]: Connected to Test at 4/12/2025 20:9:25.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 20:54:48.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/12/2025 20:55:34.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 20:56:3.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/12/2025 20:56:32.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 20:57:0.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/12/2025 20:57:23.
+[Zani]: Ready - Test.
+[Zani]: Switching database to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Ready - Test.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 20:59:38.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 21:2:5.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/12/2025 21:2:10.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/12/2025 21:2:58.
+[Zani]: Ready - Test.
+[Zani]: Switching database to Test.
+
+[Test/ERROR]: The line 3 does not exist.
+
+[Fatal/ERROR]: Uncaught rejection: null.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/12/2025 21:4:50.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/12/2025 21:4:56.
+[Zani]: Ready - Test.
+[Zani]: Switching database to Test.
+
+[Test/ERROR]: The line 3 does not exist.
+
+[Fatal/ERROR]: Uncaught rejection: null.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/12/2025 21:8:18.
+[Zani]: Ready - Test.
+[Zani]: Switching database to Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/12/2025 21:9:40.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 21:9:51.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 21:9:58.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 21:10:43.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Ready - Test.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/12/2025 21:10:50.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:16:25.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/14/2025 9:22:23.
+[Zani]: Switching database to Test.
+
+[Zani/WARNING]: Shutting down.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'entries').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:23:12.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'entries').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:27:32.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'entries').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:28:6.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'entries').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:28:17.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'entries').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:28:30.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'entries').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:28:54.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'entries').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:29:29.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'entries').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Zani]: Connected to Test at 4/14/2025 9:29:50.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'entries').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/14/2025 9:30:2.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'entries').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:30:23.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError [ERR_INVALID_ARG_TYPE]: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:30:49.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError [ERR_INVALID_ARG_TYPE]: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:32:54.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError [ERR_INVALID_ARG_TYPE]: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/14/2025 9:33:34.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError [ERR_INVALID_ARG_TYPE]: The "data" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received an instance of Object.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:34:19.
+[Zani]: Closing database Test.
+[Zani]: Ready - Test.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:35:23.
+[Zani]: Ready - Test.
+[Test]: Added entry 0 to tester2.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/14/2025 9:36:13.
+[Test]: Added entry: 9 to tester2.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:36:34.
+[Zani]: Ready - Test.
+[Test]: Added entry: 10 to tester2.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/14/2025 9:37:30.
+[Test]: Added entry: 10 to tester2.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/14/2025 9:37:33.
+[Test]: Added entry: 11 to tester2.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:38:5.
+[Test]: Added entry: 12 to tester2.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/14/2025 9:38:15.
+[Zani]: Switching database to Test.
+[Test]: Added entry: 13 to tester2.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:39:48.
+[Zani]: Ready - Test.
+[Test]: Added entry: 14 to tester2.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Test]: Added entry: 15 to tester2.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:40:5.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot assign to read only property '_id' of object '#<Object>'.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:40:25.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:40:44.
+[Zani]: Ready - Test.
+[Test]: Added entry: 17 to tester2.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:54:6.
+[Test]: Added entry: 18 to tester2.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:54:20.
+[Zani]: Ready - Test.
+[Test]: Added entry: 19 to tester2.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 9:54:48.
+[Zani]: Ready - Test.
+[Test]: Added entry: 20 to tester2.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/14/2025 9:57:8.
+[Zani]: Switching database to Test.
+[Test]: Added entry: 21 to tester2.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 10:7:29.
+[Zani]: Ready - Test.
+[Test]: Added entry: 22 to tester2.
+
+[Zani/WARNING]: Shutting down.
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: _id is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 10:7:49.
+[Zani]: Ready - Test.
+[Zani]: Loading.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 14:44:37.
+[Test]: Added entry: 24 to tester2.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Test]: Added entry: 25 to tester2.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 14:45:22.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/14/2025 14:45:32.
+[Test]: Added entry: 26 to tester2.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Test]: Added entry: 27 to tester2.
+[Zani]: Connected to Test at 4/14/2025 14:45:50.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Test]: Added entry: 28 to tester2.
+[Zani]: Connected to Test at 4/14/2025 14:46:16.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Switching database to Test.
+[Zani]: Loading.
+[Test]: Added entry: 29 to tester2.
+[Zani]: Connected to Test at 4/14/2025 14:46:46.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Switching database to Test.
+[Zani]: Loading.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/14/2025 14:47:5.
+[Test]: Added entry: 30 to tester2.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/14/2025 14:47:14.
+[Test]: Added entry: 31 to tester2.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/14/2025 14:48:17.
+[Zani]: Switching database to Test.
+[Test]: Added entry: 32 to tester2.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'log').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 12:51:24.
+[Zani]: Closing database Test.
+[Zani]: Ready - Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'log').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 12:51:53.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'log').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 12:52:11.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Test]: Here.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Cannot read properties of undefined (reading 'log').
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 12:52:28.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 12:55:45.
+[Test]: Greater than.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 12:56:44.
+[Zani]: Ready - Test.
+[Test]: Logical and.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 12:57:24.
+[Zani]: Ready - Test.
+[Test]: Logical Nand.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Test]: Logical Nand.
+[Zani]: Connected to Test at 4/15/2025 12:58:47.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 12:59:2.
+[Test]: Logical Nand.
+[Zani]: Ready - Test.
+[Test]: Logical or.
+[Test]: Logical not.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:2:13.
+[Zani]: Ready - Test.
+[Test]: Logical Nand 1.
+[Test]: Logical or 1.
+[Test]: Logical not 1.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/15/2025 13:2:26.
+[Zani]: Switching database to Test.
+[Test]: Logical or 1.
+[Test]: Logical Nand [object Object].
+[Test]: Logical not 1.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:3:5.
+[Zani]: Ready - Test.
+[Test]: Logical Nand 1.
+[Test]: Logical or 1.
+[Test]: Logical not 1.
+
+[Zani/WARNING]: Shutting down.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: this.queryOperators[element](...) is not iterable (cannot read property undefined).
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:9:53.
+[Zani]: Ready - Test.
+[Test]: Logical Nand [object Object].
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: results is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:11:23.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Test]: Logical Nand [object Object].
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: results is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:13:10.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Test]: Logical Nand [object Object].
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: results is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:13:24.
+[Test]: Logical Nand [object Object].
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: results is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:13:37.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Test]: Logical Nand [object Object].
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: results is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:14:18.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Test]: Logical Nand [object Object].
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: results is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:14:37.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Test]: Logical Nand [object Object].
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: results is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/15/2025 13:14:52.
+[Test]: Logical Nand 2.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: results is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:15:2.
+[Test]: Logical Nand 2.
+[Zani]: Closing database Test.
+[Zani]: Ready - Test.
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: results is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Ready - Test.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:15:15.
+[Zani]: Closing database Test.
+[Test]: Logical Nand 2.
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: results is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/15/2025 13:15:19.
+[Test]: Logical Nand 2.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: results is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:17:10.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Test]: Logical Nand 2.
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: results is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:17:38.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Test]: Logical Nand 2.
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: results is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:17:49.
+[Zani]: Ready - Test.
+[Test]: Logical Nand 2.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/15/2025 13:18:38.
+[Test]: Logical Nand 2.
+[Test]: Logical not 1.
+[Test]: Equal to 1.
+[Zani]: Ready - Test.
+[Test]: Logical or 1.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:35:6.
+[Test]: Equal to [object Object] for value.
+[Test]: Logical or [object Object].
+[Test]: Equal to 32 for _id.
+[Zani]: Ready - Test.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:36:5.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to 32 for _id.
+[Test]: Equal to [object Object] for value.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:36:41.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Ready - Test.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/16/2025 18:37:0.
+[Zani]: Switching database to Test.
+[Test]: Equal to [object Object] for value.
+[Test]: Equal to 32 for _id.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+
+[Zani/WARNING]: Shutting down.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected token 'o', "[object Promise]" is not valid JSON.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:37:14.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected token 'o', "[object Promise]" is not valid JSON.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:38:43.
+[Zani]: Ready - Test.
+[Test]: Equal to [object Object] for value.
+[Test]: Logical or [object Object].
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected token 'o', "[object Promise]" is not valid JSON.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:39:20.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected token 'o', "[object Promise]" is not valid JSON.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:39:31.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Spread syntax requires ...iterable[Symbol.iterator] to be a function.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:39:49.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: Spread syntax requires ...iterable[Symbol.iterator] to be a function.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:42:45.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError: resultsArray is not iterable (cannot read property undefined).
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:44:1.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Zani]: Closing database Test.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:44:35.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Test]: Equal to 32 for _id.
+[Zani]: Loading.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected end of JSON input.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected token 'o', "[object Promise]" is not valid JSON.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:46:57.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Loading.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected token 'o', "[object Promise]" is not valid JSON.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:47:17.
+[Test]: Logical or [object Object].
+[Zani]: Ready - Test.
+[Test]: Equal to [object Object] for value.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected token 'o', "[object Promise]" is not valid JSON.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:49:2.
+[Test]: Logical or [object Object].
+[Zani]: Ready - Test.
+[Test]: Equal to [object Object] for value.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected token 'o', "[object Promise]" is not valid JSON.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:49:13.
+[Test]: Equal to [object Object] for value.
+[Test]: Logical or [object Object].
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError [ERR_INVALID_ARG_TYPE]: The "callback" argument must be of type function. Received type number (100).
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/16/2025 18:54:4.
+[Zani]: Switching database to Test.
+[Test]: Logical or [object Object].
+[Zani]: Ready - Test.
+[Test]: Equal to [object Object] for value.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: TypeError [ERR_INVALID_ARG_TYPE]: The "callback" argument must be of type function. Received null.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 18:54:20.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Closing database Test.

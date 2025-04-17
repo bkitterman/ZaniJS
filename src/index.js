@@ -1,12 +1,24 @@
-/** This is a basic test file for ZaniJS to ensure it is functioning as intended. 
- * 
+/** This is a basic test file for ZaniJS to ensure it is functioning as intended.
+ *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
 
 // Custom Import
-const Zani = require("./zani");
+const Zani = require('./zani');
+main();
 
-var db = new Zani();
-db.addCollection("Test34");
-db.setDatabase("Test");
-db.addCollection();
+async function main() {
+	var db = new Zani('Test');
+	var result = await db.find('tester2', {
+		$or: { 
+			value: { $lt: 5 },
+			_id: 22, 
+		},
+		value: {$gte: 40},
+		_id: 32,
+	});
+
+	console.log(result);
+
+
+}
