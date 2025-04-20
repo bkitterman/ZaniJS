@@ -7,7 +7,8 @@ npm# See https://help.github.com/articles/ignoring-files/ for more about ignorin
 
 # testing
 /coverage
-/src/crashReports
+/src/*
+/src!*.js
 
 # production
 /build

@@ -2009,3 +2009,561 @@ Error locating collection jsonl at C:\Users\User\Documents\hobby project\ZaniJS\
 [Test]: Logical or [object Object].
 [Test]: Equal to [object Object] for value.
 [Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:18:3.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected end of JSON input.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Zani]: Switching database to Test.
+[Test]: Equal to [object Object] for value.
+[Zani]: Connected to Test at 4/16/2025 21:18:37.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected end of JSON input.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/16/2025 21:18:57.
+[Zani]: Switching database to Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Ready - Test.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected end of JSON input.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+
+[Test/ERROR]: No line number provided..
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: "undefined" is not valid JSON.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:19:28.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Zani]: Closing database Test.
+[Test]: Equal to [object Object] for value.
+
+[Test/ERROR]: No line number provided..
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: "undefined" is not valid JSON.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:19:45.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Zani]: Closing database Test.
+[Test]: Equal to [object Object] for value.
+
+[Test/ERROR]: No line number provided..
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: "undefined" is not valid JSON.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/16/2025 21:20:33.
+[Zani]: Switching database to Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Test]: Equal to [object Object] for value.
+[Test]: Logical or [object Object].
+[Zani]: Connected to Test at 4/16/2025 21:20:45.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected end of JSON input.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:21:6.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected end of JSON input.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:21:17.
+[Test]: Logical or [object Object].
+[Zani]: Ready - Test.
+[Test]: Equal to [object Object] for value.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: Unexpected end of JSON input.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Test]: Logical or [object Object].
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/16/2025 21:21:23.
+[Test]: Equal to [object Object] for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:22:48.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Ready - Test.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:23:2.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/16/2025 21:23:24.
+[Zani]: Switching database to Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Ready - Test.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:23:43.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Test]: Has property value, has value 40.
+[Test]: Has property value, has value 0.
+[Test]: Has property value, has value 1.
+[Test]: Has property value, has value 2.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value 10.
+[Test]: Has property value, has value Hello 
+World!.
+[Test]: Has property value, has value Hello 
+World!.
+[Test]: Has property value, has value Hello 
+World!.
+[Test]: Has property value, has value Hello 
+World!.
+[Test]: Has property value, has value Hello 
+World!.
+[Test]: Has property value, has value Hello 
+World!.
+[Test]: Has property value, has value Hello 
+World!.
+[Test]: Has property value, has value Hello 
+World!.
+[Test]: Has property value, has value Hello 
+World!.
+[Test]: Has property value, has value Hello 
+World!.
+[Test]: Has property value, has value Hello 
+World!.
+[Test]: Has property value, has value Hello 
+World!.
+[Test]: Has property value, has value Hello 
+World!.
+[Test]: Equal to 32 for _id.
+[Test]: Has property _id, has value 1.
+[Test]: Has property _id, has value 21.
+[Test]: Has property _id, has value 22.
+[Test]: Has property _id, has value 24.
+[Test]: Has property _id, has value 25.
+[Test]: Has property _id, has value 26.
+[Test]: Has property _id, has value 27.
+[Test]: Has property _id, has value 28.
+[Test]: Has property _id, has value 29.
+[Test]: Has property _id, has value 30.
+[Test]: Has property _id, has value 31.
+[Test]: Has property _id, has value 32.
+[Test]: Has property _id, has value 32.
+[Test]: Has property _id, has value 32.
+[Test]: Has property _id, has value 32.
+[Test]: Has property _id, has value 32.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Connected to Test at 4/16/2025 21:23:54.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Ready - Test.
+[Zani]: Switching database to Test.
+[Test]: Logical or [object Object].
+[Zani]: Connected to Test at 4/16/2025 21:24:21.
+[Test]: Equal to [object Object] for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:24:27.
+[Test]: Logical or [object Object].
+[Zani]: Ready - Test.
+[Test]: Equal to [object Object] for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:25:15.
+[Test]: Equal to [object Object] for value.
+[Test]: Logical or [object Object].
+[Zani]: Ready - Test.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:25:41.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/16/2025 21:25:56.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Test]: Equal to 32 for _id.
+
+[Fatal/ERROR]: Uncaught rejection: SyntaxError: "[object Object]" is not valid JSON.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Zani]: Switching database to Test.
+[Test]: Equal to [object Object] for value.
+[Zani]: Connected to Test at 4/16/2025 21:26:19.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Test]: Logical or [object Object].
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:26:36.
+[Test]: Equal to [object Object] for value.
+[Zani]: Ready - Test.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:26:53.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Ready - Test.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/16/2025 21:27:18.
+[Zani]: Switching database to Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Ready - Test.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:27:30.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/16/2025 21:30:4.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/16/2025 21:30:11.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Switching database to Test.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:30:19.
+[Test]: Logical or [object Object].
+[Zani]: Ready - Test.
+[Test]: Equal to [object Object] for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/16/2025 21:30:25.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/16/2025 21:30:34.
+[Test]: Logical or [object Object].
+[Zani]: Ready - Test.
+[Test]: Equal to [object Object] for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Connected to Test at 4/16/2025 21:34:37.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/17/2025 14:33:37.
+[Test]: Logical or [object Object].
+[Test]: Equal to [object Object] for value.
+[Zani]: Ready - Test.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/17/2025 14:33:49.
+[Zani]: Ready - Test.
+[Test]: Equal to [object Object] for value.
+[Test]: Logical or [object Object].
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/17/2025 14:35:11.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Test]: Equal to 32 for _id.
+[Test]: Logical or [object Object].
+
+[Zani/WARNING]: Shutting down.
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: findRouter is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/17/2025 14:38:9.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object].
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: findRouter is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/17/2025 14:42:42.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object] for $or.
+[Zani]: Closing database Test.
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: findRouter is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/17/2025 14:44:1.
+[Zani]: Ready - Test.
+[Zani]: Switching database to Test.
+[Zani]: Closing database Test.
+[Test]: Logical or [object Object] for $or.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/17/2025 14:44:25.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object] for $or.
+[Test]: Greater than equal to 40 for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+
+[Fatal/ERROR]: Uncaught rejection: ReferenceError: details is not defined.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Connected to Test at 4/17/2025 14:50:40.
+[Zani]: Switching database to Test.
+[Zani]: Ready - Test.
+[Zani]: Closing database Test.
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/17/2025 14:50:57.
+[Test]: Logical or [object Object] for $or.
+[Test]: Greater than equal to 40 for value.
+[Zani]: Ready - Test.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+[Zani]: Loading.
+[Zani]: Ready - Test.
+[Zani]: Connected to Test at 4/17/2025 14:51:44.
+[Test]: Greater than equal to 40 for value.
+[Test]: Logical or [object Object] for $or.
+[Zani]: Switching database to Test.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+
+
+
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Test]: Logical or [object Object] for $or.
+[Zani]: Connected to Test at 4/17/2025 14:51:51.
+[Test]: Greater than equal to 40 for value.
+[Zani]: Ready - Test.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+
+
+
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/17/2025 14:54:7.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object] for $or.
+[Test]: Less than 5 for value.
+[Test]: Equal to 22 for _id.
+[Test]: Greater than equal to 40 for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+
+
+
+[Zani]: Loading.
+[Test]: Logical or [object Object] for $or.
+[Test]: Less than 5 for value.
+[Test]: Equal to 22 for _id.
+[Zani]: Connected to Test at 4/17/2025 14:56:26.
+[Zani]: Ready - Test.
+[Zani]: Switching database to Test.
+[Test]: Equal to 32 for _id.
+[Test]: Greater than equal to 40 for value.
+
+[Zani/WARNING]: Shutting down.
+
+
+
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/17/2025 14:56:45.
+[Test]: Logical or [object Object] for $or.
+[Zani]: Ready - Test.
+[Test]: Equal to 22 for _id.
+[Test]: Less than 5 for value.
+[Test]: Greater than equal to 40 for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+
+
+
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/17/2025 14:57:57.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object] for $or.
+[Test]: Less than 5 for value.
+[Test]: Equal to 22 for _id.
+[Test]: Greater than equal to 40 for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+
+
+
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Test]: Less than 5 for value.
+[Zani]: Connected to Test at 4/17/2025 14:59:8.
+[Test]: Equal to 22 for _id.
+[Test]: Logical or [object Object] for undefined.
+[Zani]: Ready - Test.
+[Test]: Greater than equal to 40 for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+
+
+
+[Zani]: Loading.
+[Zani]: Switching database to Test.
+[Zani]: Connected to Test at 4/17/2025 14:59:40.
+[Zani]: Ready - Test.
+[Test]: Logical or [object Object] for undefined.
+[Test]: Less than 5 for value.
+[Test]: Equal to 22 for _id.
+[Test]: Greater than equal to 40 for value.
+[Test]: Equal to 32 for _id.
+
+[Zani/WARNING]: Shutting down.
+
+
+
