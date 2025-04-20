@@ -16,6 +16,9 @@ async function main() {
 		},
 		value: {$gte: 40},
 		_id: 32,
+	}, {
+		_id: 1,
+		value: 1
 	});
 
 	console.log(result);

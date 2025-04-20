@@ -9,9 +9,10 @@ const ZaniLog = require('./zaniLog');
 
 //TODO list
 /*
-- Add function that creates a txt file of the attributes within each collection, like a meta.pdf
-- Create a MD documentation of query to follow
-- Create options for collections, such as deduplication, unique, constraints
+	- Add function that creates a txt file of the attributes within each collection, like a meta.pdf
+		- To build on a method that returns a json of values (IE {value: number, obj: {n: string}})
+	- Create a MD documentation of query to follow
+	- Create options for collections, such as deduplication, unique, constraints, domains
 */
 
 /** A lightweight, out-of-memory NoSQL Document Store database system.
@@ -464,7 +465,7 @@ class Zani {
 	/* -------------------------------------------------------------------------- */
 
 	//TODO create a single object variant
-	find(collection, criteria, project, sort) {
+	async find(collection, criteria, project, sort) {
 		// Check if active database
 		if (!this.checkForActiveDatabase()) return;
 
@@ -486,16 +487,7 @@ class Zani {
 		if (!criteria) {
 			results = this.getCollection(collection);
 		} else {
-			const searchParameters = Object.getOwnPropertyNames(criteria);
-
-			searchParameters.forEach((element) => {
-				if (element.charAt(0) === '$') {
-					results.push(... this.queryOperators[element](collection, element, criteria[element]));
-				} else 
-					// TODO make this more efficient, right now it passes over everything n times where n = criteria props.
-					// 		Combine all non $ params and have it iterate 1 time over everything and compare each to all
-					results.push(... this.findEqual(collection, element, criteria[element]));
-			});
+			results.push(... await this.findRouter(collection, criteria, undefined));
 		}
 
 		// TODO group by clause here
@@ -507,19 +499,25 @@ class Zani {
 
 			// Extract projection keys, and add to array if desired to keep
 			Object.getOwnPropertyNames(project).forEach(element => {
-				if(projections[element]===1)
+				if(project[element]===1) {
 					projections.push(element);
+				}
 			});
 
 			// Default return of _id
-			if(!projections.hasOwnProperty('_id'))
+			if(!project.hasOwnProperty('_id'))
 				projections.push('_id');
 
 			// Match results to desired projection
 			results.forEach(element => {
 				for(const key in element) {
-					if(!projections.includes(key))
+					if(!projections.includes(key)) {
 						delete element[key];
+
+						// If it was the last key in element, remove
+						if(Object.keys(element).length === 0)
+							results = results.filter(arrElement => arrElement !== element);
+					}
 				}
 			});
 		}
@@ -555,49 +553,94 @@ class Zani {
 		$type: this.findType.bind(this),
 	};
 
+	/** Given a criteria, route all queries to proper method and construct the results array. This method is called from
+	 * and will return to {@link Zani#find}. This method is recursive and will be called for every $queryOperator.
+	 * 
+	 * @see {@link Zani#queryOperators}
+	 * @see {@link Zani#find}
+	 * 
+	 * @param {string} collection - The collection to search 
+	 * @param {object} criteria - The search query
+	 * @param {string=} attribute - The calling attribute, if present. 
+	 * @returns object[]
+	 */
+	async findRouter(collection, criteria, attribute) {
+		var results = [];
+		const searchParameters = Object.getOwnPropertyNames(criteria);
+
+		// TODO This logic needs reworked. It will always go to findEqual regardless of comparison.
+		for (const element of searchParameters) {
+			if (element.charAt(0) === '$') {
+				results.push(... await this.queryOperators[element](collection, attribute, criteria[element]));
+			} else if(typeof criteria[element] === 'object') {
+				results.push(... await this.findRouter(collection, criteria[element], element));
+			} else {
+				// TODO make this more efficient, right now it passes over everything n times where n = criteria props.
+				// 		Combine all non $ params and have it iterate 1 time over everything and compare each to all
+				results.push(... await this.findEqual(collection, element, criteria[element]));
+			}
+		}
+
+		return results;
+	}
+
 	/* ---------------------------- Value comparison ---------------------------- */
-	findGreaterThan(collection, attribute, value) {
-		this.logger.log('Greater than', this.databaseName);
+	async findGreaterThan(collection, attribute, value) {
+		this.logger.log(`Greater than ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
 		return results;
 	}
 
-	findGreaterThanEqual(collection, attribute, value) {
-		this.logger.log(`Greater than equal to ${value}`, this.databaseName);
+	async findGreaterThanEqual(collection, attribute, value) {
+		this.logger.log(`Greater than equal to ${value} for ${attribute}`, this.databaseName);
 		
 		var results = [];
 		return results;
 	}
 
-	findLessThan(collection, attribute, value) {
-		this.logger.log(`Less than ${value}`, this.databaseName);
+	async findLessThan(collection, attribute, value) {
+		this.logger.log(`Less than ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
 		return results;
 	}
 
-	findLessThanEqual(collection, attribute, value) {
-		this.logger.log(`Less than equal to ${value}`, this.databaseName);
+	async findLessThanEqual(collection, attribute, value) {
+		this.logger.log(`Less than equal to ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
 		return results;
 	}
 
-	// TODO make the getCollectionEntry sync cause this sucks dealing with async/await
-	findEqual(collection, attribute, value) {
+	/** Search the collection provided for equality via the attribute, compared to the value. and 
+	 * returned to {@link Zani#find} for projection, grouping, and sorting as needed. If it was part of a compound search
+	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead. 
+	 * 
+	 * @async
+	 * 
+	 * @see {@link Zani#find}
+	 * @see {@link Zani#findRouter}
+	 * 
+	 * @param {string} collection - The name of the collection
+	 * @param {string} attribute The attribute name to have the comparison performed on
+	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
+	 * 
+	 * @returns {object[]}
+	 */
+	async findEqual(collection, attribute, value) {
 		this.logger.log(`Equal to ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
 		const collectionSize = this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
 
-		for(var i = 1; i<=collectionSize; i++) {
-			var entry = this.getCollectionEntry(collection, i);
-
+		// Read through entire collection, search for results
+		for(var i = 1; i<collectionSize; i++) {
+			var entry = await this.getCollectionEntry(collection, i);
 			entry = JSON.parse(entry);
 
-			if(entry.hasOwnProperty[attribute]) {
-				this.logger.log(`Has property ${attribute}, has value ${entry[attribute]}`, this.databaseName);
+			// If entry has attribute, compare. If conditions met, add to results array. 
+			if(entry.hasOwnProperty(attribute)) {
 				if(entry[attribute] === value) 
 					results.push(entry);
 			}
@@ -606,7 +649,7 @@ class Zani {
 		return results;
 	}
 
-	findNotEqual(collection, attribute, value) {
+	async findNotEqual(collection, attribute, value) {
 		this.logger.log(`Not equal to ${value}`, this.databaseName);
 
 		var results = [];
@@ -614,80 +657,90 @@ class Zani {
 	}
 
 	/* ---------------------------- Logical Operators --------------------------- */
-	findAnd(collection, attribute, value) {
-		this.logger.log(`Logical and ${value}`, this.databaseName);
+	async findAnd(collection, attribute, value) {
+		this.logger.log(`Logical and ${value} for ${attribute}`, this.databaseName);
+
+		var results = [];
+
+		// Create a 2d array, 1d for results, 2d for each result set. Then, compare through division 
+		// to see which results appear in all rows. This is final array
+
+		return results;
+	}
+
+	async findOr(collection, attribute, value) {
+		this.logger.log(`Logical or ${value} for ${attribute}`, this.databaseName);
+
+		var results = [];
+
+		// Can just append results all to single array. Then, de-duplicate.
+		results.push(... await this.findRouter(collection, value, attribute));
+
+		// De-duplicate;
+	
+		return results;
+	}
+
+	async findNot(collection, attribute, value) {
+		this.logger.log(`Logical not ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
 		return results;
 	}
 
-	findOr(collection, attribute, value) {
-		this.logger.log(`Logical or ${value}`, this.databaseName);
+	async findNand(collection, attribute, value) {
+		this.logger.log(`Logical Nand ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
 		return results;
 	}
 
-	findNot(collection, attribute, value) {
-		this.logger.log(`Logical not ${value}`, this.databaseName);
+	async findNor(collection, attribute, value) {
+		this.logger.log(`Logical Nor ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
 		return results;
 	}
 
-	findNand(collection, attribute, value) {
-		this.logger.log(`Logical Nand ${value}`, this.databaseName);
-
-		var results = [];
-		return results;
-	}
-
-	findNor(collection, attribute, value) {
-		this.logger.log(`Logical Nor ${value}`, this.databaseName);
-
-		var results = [];
-		return results;
-	}
-
-	findXor(collection, attribute, value) {
-		this.logger.log(`Logical Xor ${value}`, this.databaseName);
+	async findXor(collection, attribute, value) {
+		this.logger.log(`Logical Xor ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
 		return results;
 	}
 
 	/* ----------------------- Arrays and Text Comparison ----------------------- */
-	findIn(collection, attribute, value) {
-		this.logger.log(`Array In ${value}`, this.databaseName);
+	async findIn(collection, attribute, value) {
+		this.logger.log(`Array In ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
 		return results;
 	}
 
-	findNotIn(collection, attribute, value) {
-		this.logger.log(`Array Not In ${value}`, this.databaseName);
+	async findNotIn(collection, attribute, value) {
+		this.logger.log(`Array Not In ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
 		return results;
 	}
 
-	findText(collection, attribute, value) {
-		this.logger.log(`Array Text ${value}`, this.databaseName);
+	async findText(collection, attribute, value) {
+		this.logger.log(`Array Text ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
 		return results;
 	}
 
 	/* ---------------------------- Misc. Comparison ---------------------------- */
-	findExists(collection, attribute, value) {
-		this.logger.log(`Comp Exists ${value}`, this.databaseName);
+	async findExists(collection, attribute, value) {
+		this.logger.log(`Comp Exists ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
 		return results;
 	}
 
-	findType(collection, attribute, value) {
-		this.logger.log(`Comp Type ${value}`, this.databaseName);
+	async findType(collection, attribute, value) {
+		this.logger.log(`Comp Type ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
 		return results;
@@ -912,6 +965,7 @@ class Zani {
 	 */
 	#cleanup() {
 		this.logger.warn(`Shutting down`);
+		this.logger.insertBreak();
 
 		// Close the active database
 		this.closeDatabase();
