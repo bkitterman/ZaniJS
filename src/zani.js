@@ -6,7 +6,6 @@ const readline = require('readline');
 // Custom Imports
 const ZaniLog = require('./zaniLog');
 
-
 //TODO list
 /*
 	- Add function that creates a txt file of the attributes within each collection, like a meta.pdf
@@ -487,7 +486,7 @@ class Zani {
 		if (!criteria) {
 			results = this.getCollection(collection);
 		} else {
-			results.push(... await this.findRouter(collection, criteria, undefined));
+			results.push(... await this.findRouter(collection, undefined, criteria));
 		}
 
 		// TODO group by clause here
@@ -498,29 +497,31 @@ class Zani {
 			var projections = [];
 
 			// Extract projection keys, and add to array if desired to keep
-			Object.getOwnPropertyNames(project).forEach(element => {
-				if(project[element]===1) {
+			Object.getOwnPropertyNames(project).forEach((element) => {
+				if (project[element] === 1) {
 					projections.push(element);
 				}
 			});
 
 			// Default return of _id
-			if(!project.hasOwnProperty('_id'))
-				projections.push('_id');
+			if (!project.hasOwnProperty('_id')) projections.push('_id');
 
 			// Match results to desired projection
-			results.forEach(element => {
-				for(const key in element) {
-					if(!projections.includes(key)) {
+			results.forEach((element) => {
+				for (const key in element) {
+					if (!projections.includes(key)) {
 						delete element[key];
 
 						// If it was the last key in element, remove
-						if(Object.keys(element).length === 0)
-							results = results.filter(arrElement => arrElement !== element);
+						if (Object.keys(element).length === 0)
+							results = results.filter((arrElement) => arrElement !== element);
 					}
 				}
 			});
 		}
+
+		// Deduplication
+		//results = this.deduplicateResults(results);
 
 		if (sort) {
 			const sortParam = Object.getOwnPropertyNames(sort);
@@ -555,25 +556,27 @@ class Zani {
 
 	/** Given a criteria, route all queries to proper method and construct the results array. This method is called from
 	 * and will return to {@link Zani#find}. This method is recursive and will be called for every $queryOperator.
-	 * 
+	 *
 	 * @see {@link Zani#queryOperators}
 	 * @see {@link Zani#find}
-	 * 
-	 * @param {string} collection - The collection to search 
+	 *
+	 * @param {string} collection - The collection to search
 	 * @param {object} criteria - The search query
-	 * @param {string=} attribute - The calling attribute, if present. 
-	 * @returns object[]
+	 * @param {string=} attribute - The calling attribute, if present.
+	 *
+	 * @returns {object[]}
 	 */
-	async findRouter(collection, criteria, attribute) {
+	async findRouter(collection, attribute, criteria) {
 		var results = [];
 		const searchParameters = Object.getOwnPropertyNames(criteria);
 
-		// TODO This logic needs reworked. It will always go to findEqual regardless of comparison.
 		for (const element of searchParameters) {
 			if (element.charAt(0) === '$') {
-				results.push(... await this.queryOperators[element](collection, attribute, criteria[element]));
-			} else if(typeof criteria[element] === 'object') {
-				results.push(... await this.findRouter(collection, criteria[element], element));
+				results.push(
+					... await this.queryOperators[element](collection, attribute, criteria[element]),
+				);
+			} else if (typeof criteria[element] === 'object') {
+				results.push(... await this.findAnd(collection, element, criteria[element]));
 			} else {
 				// TODO make this more efficient, right now it passes over everything n times where n = criteria props.
 				// 		Combine all non $ params and have it iterate 1 time over everything and compare each to all
@@ -589,13 +592,41 @@ class Zani {
 		this.logger.log(`Greater than ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
+		const collectionSize =
+			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+
+		// Read through entire collection, search for results
+		for (var i = 1; i < collectionSize; i++) {
+			var entry = await this.getCollectionEntry(collection, i);
+			entry = JSON.parse(entry);
+
+			// If entry has attribute, compare. If conditions met, add to results array.
+			if (entry.hasOwnProperty(attribute)) {
+				if (entry[attribute] > value) results.push(entry);
+			}
+		}
+
 		return results;
 	}
 
 	async findGreaterThanEqual(collection, attribute, value) {
 		this.logger.log(`Greater than equal to ${value} for ${attribute}`, this.databaseName);
-		
+
 		var results = [];
+		const collectionSize =
+			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+
+		// Read through entire collection, search for results
+		for (var i = 1; i < collectionSize; i++) {
+			var entry = await this.getCollectionEntry(collection, i);
+			entry = JSON.parse(entry);
+
+			// If entry has attribute, compare. If conditions met, add to results array.
+			if (entry.hasOwnProperty(attribute)) {
+				if (entry[attribute] >= value) results.push(entry);
+			}
+		}
+
 		return results;
 	}
 
@@ -603,6 +634,20 @@ class Zani {
 		this.logger.log(`Less than ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
+		const collectionSize =
+			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+
+		// Read through entire collection, search for results
+		for (var i = 1; i < collectionSize; i++) {
+			var entry = await this.getCollectionEntry(collection, i);
+			entry = JSON.parse(entry);
+
+			// If entry has attribute, compare. If conditions met, add to results array.
+			if (entry.hasOwnProperty(attribute)) {
+				if (entry[attribute] < value) results.push(entry);
+			}
+		}
+
 		return results;
 	}
 
@@ -610,39 +655,53 @@ class Zani {
 		this.logger.log(`Less than equal to ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
+		const collectionSize =
+			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+
+		// Read through entire collection, search for results
+		for (var i = 1; i < collectionSize; i++) {
+			var entry = await this.getCollectionEntry(collection, i);
+			entry = JSON.parse(entry);
+
+			// If entry has attribute, compare. If conditions met, add to results array.
+			if (entry.hasOwnProperty(attribute)) {
+				if (entry[attribute] <= value) results.push(entry);
+			}
+		}
+
 		return results;
 	}
 
-	/** Search the collection provided for equality via the attribute, compared to the value. and 
+	/** Search the collection provided for equality via the attribute, compared to the value. and
 	 * returned to {@link Zani#find} for projection, grouping, and sorting as needed. If it was part of a compound search
-	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead. 
-	 * 
+	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
+	 *
 	 * @async
-	 * 
+	 *
 	 * @see {@link Zani#find}
 	 * @see {@link Zani#findRouter}
-	 * 
+	 *
 	 * @param {string} collection - The name of the collection
 	 * @param {string} attribute The attribute name to have the comparison performed on
 	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
-	 * 
+	 *
 	 * @returns {object[]}
 	 */
 	async findEqual(collection, attribute, value) {
 		this.logger.log(`Equal to ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
-		const collectionSize = this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+		const collectionSize =
+			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
 
 		// Read through entire collection, search for results
-		for(var i = 1; i<collectionSize; i++) {
+		for (var i = 1; i < collectionSize; i++) {
 			var entry = await this.getCollectionEntry(collection, i);
 			entry = JSON.parse(entry);
 
-			// If entry has attribute, compare. If conditions met, add to results array. 
-			if(entry.hasOwnProperty(attribute)) {
-				if(entry[attribute] === value) 
-					results.push(entry);
+			// If entry has attribute, compare. If conditions met, add to results array.
+			if (entry.hasOwnProperty(attribute)) {
+				if (entry[attribute] === value) results.push(entry);
 			}
 		}
 
@@ -661,11 +720,36 @@ class Zani {
 		this.logger.log(`Logical and ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
+		var searchParameters = Object.getOwnPropertyNames(value);
+		var searchCount = searchParameters.length;
 
-		// Create a 2d array, 1d for results, 2d for each result set. Then, compare through division 
-		// to see which results appear in all rows. This is final array
+		// Compile results from query, each query is individual row of 2d array
+		for (let i = 0; i < searchCount; i++) {
+			results[i] = await this.queryOperators[searchParameters[i]](
+				collection,
+				attribute,
+				value[searchParameters[i]],
+			);
+		}
 
-		return results;
+		// if no results found, or only one row (one query), skip rest of method
+		if (results.length <= 1) return results[0];
+
+		// Start with elements from the first row
+		let commonValues = new Set(results[0].map(item => item[attribute]));
+
+		// Check set for intersections
+		for (let i = 1; i < searchCount; i++) {
+			let currentRow = new Set(results[i].map(item => item[attribute]));
+
+			// Keep only elements that are in both sets
+			commonValues = new Set([...commonValues].filter(val => currentRow.has(val)));
+
+			// Early exit if there's nothing in common
+			if (commonValues.size === 0) break;
+		}
+
+		return results[0].filter(item => commonValues.has(item[attribute]));
 	}
 
 	async findOr(collection, attribute, value) {
@@ -674,10 +758,11 @@ class Zani {
 		var results = [];
 
 		// Can just append results all to single array. Then, de-duplicate.
-		results.push(... await this.findRouter(collection, value, attribute));
+		results.push(... await this.findRouter(collection, attribute, value));
 
-		// De-duplicate;
-	
+		// De-duplicate results
+		results = this.deduplicateResults(results);
+
 		return results;
 	}
 
@@ -747,6 +832,36 @@ class Zani {
 	}
 
 	/* ------------------------- Query Result operations ------------------------ */
+	/** Provided an array of entries, remove all duplicate entries and return an array with only unique elements.
+	 * 
+	 * @param {object[]} results - An array of entries for deduplication
+	 * @returns {object[]}
+	 */
+	deduplicateResults(results) {
+		let deduplicatedResults = [];
+		let resultCount = results.length;
+
+		// Cycle through each result provided
+		for(var i = 0; i<resultCount; i++) {
+			let element = results[i];
+			let found = false;
+			let params = Object.getOwnPropertyNames(element);// Just in case
+
+			// Check that element is not in deduplicated results array
+			for(var j = 0; j<deduplicatedResults.length; j++) {
+				if(this.compareObjects(deduplicatedResults[j], element)) {
+					found = true;
+					break;
+				}
+			}
+
+			// If result was not in array, add
+			if(!found) deduplicatedResults.push(element);
+		}
+
+		return deduplicatedResults;
+	}
+	
 	project(results, value) {
 		this.logger.log(`Projection ${value}`, this.databaseName);
 	}
@@ -843,7 +958,7 @@ class Zani {
 	 *
 	 * @param {string} collection - The collection to retrieve from
 	 * @param {number} lineNumber - The desired line number
-	 * 
+	 *
 	 * @return {string}
 	 */
 	//? useful for indexing?
@@ -918,6 +1033,52 @@ class Zani {
 	 */
 	updateMetaFile() {
 		fs.writeFileSync(this.databaseName + '\\meta.json', JSON.stringify(this.meta));
+	}
+
+	/** Compare two objects by all parameters, and then return true or false. It will first check by _id, and
+	 * if its not present, it will check that all attributes and values are aligned. If any different, it will
+	 * be false.
+	 * 
+	 * @param {object} obj1 - The first object to compare
+	 * @param {object} obj2 - The second object to compare
+	 * @returns {boolean}
+	 */
+	compareObjects(obj1, obj2) {
+		// Check both objects are passed
+		if(obj1 === undefined || obj2 === undefined) {
+			this.logger.error(`Either one or both objects are undefined, and cannot be compared`, this.databaseName);
+			return false;
+		}
+
+		// If both have a _id property, compare.
+		if(obj1.hasOwnProperty('_id') && obj1.hasOwnProperty('_id')) {
+			if(obj1._id === obj2._id) 
+				return true;
+			return false;
+		}
+
+		// Compare by all known values
+		var obj1Keys = Object.getOwnPropertyNames(obj1).sort();
+		var obj2Keys = Object.getOwnPropertyNames(obj2).sort();
+
+		
+		// Ensure attributes are the same before checking values
+		if(obj1Keys.length != obj2Keys.length) return false;
+
+		var keyLength = obj1Keys.length;
+		for(let i = 0; i<keyLength; i++) {
+			if(obj1Keys[i]!=obj2Keys[i])
+				return false;
+		}
+
+		// Check attribute values
+		for(let i = 0; i<keyLength; i++) {
+			if(obj1[obj1Keys[i]]!=obj2[obj2Keys[i]])
+				return false;
+		}
+
+		// If all passed, they are the same.
+		return true;
 	}
 
 	/* -------------------------------------------------------------------------- */

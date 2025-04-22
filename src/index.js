@@ -11,8 +11,8 @@ async function main() {
 	var db = new Zani('Test');
 	var result = await db.find('tester2', {
 		$or: { 
-			value: { $lt: 5 },
-			_id: 22, 
+			value: { $lte: 10, $gt: 3 },
+			_id: 22,
 		},
 		value: {$gte: 40},
 		_id: 32,
@@ -22,6 +22,4 @@ async function main() {
 	});
 
 	console.log(result);
-
-
 }
