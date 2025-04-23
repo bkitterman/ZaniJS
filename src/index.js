@@ -14,7 +14,7 @@ async function main() {
 			value: { $lte: 10, $gt: 3 },
 			_id: 22,
 		},
-		value: {$gte: 40},
+		$not: {value: {$gte: 40}},
 		_id: 32,
 	}, {
 		_id: 1,

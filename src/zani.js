@@ -12,6 +12,8 @@ const ZaniLog = require('./zaniLog');
 		- To build on a method that returns a json of values (IE {value: number, obj: {n: string}})
 	- Create a MD documentation of query to follow
 	- Create options for collections, such as deduplication, unique, constraints, domains
+	- Add a repair meta method in case of entries becoming out of sync with files
+	- Add a repair collection file in case of formatting error (IE formatted file, breaking line/entry)
 */
 
 /** A lightweight, out-of-memory NoSQL Document Store database system.
@@ -55,6 +57,9 @@ class Zani {
 
 	createCollection = this.addCollection;
 	deleteCollection = this.removeCollection;
+
+	search = this.find;
+	query = this.find;
 
 	/* -------------------------------- Variables ------------------------------- */
 	/** The active database name. If undefined, no database is active. @*/
@@ -588,6 +593,21 @@ class Zani {
 	}
 
 	/* ---------------------------- Value comparison ---------------------------- */
+	/** Search the collection provided for greater than via the attribute, compared to the value. and
+	 * returned to {@link Zani#find} for projection, grouping, and sorting as needed. If it was part of a compound search
+	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
+	 *
+	 * @async
+	 *
+	 * @see {@link Zani#find}
+	 * @see {@link Zani#findRouter}
+	 *
+	 * @param {string} collection - The name of the collection
+	 * @param {string} attribute The attribute name to have the comparison performed on
+	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
+	 *
+	 * @returns {object[]}
+	 */
 	async findGreaterThan(collection, attribute, value) {
 		this.logger.log(`Greater than ${value} for ${attribute}`, this.databaseName);
 
@@ -609,6 +629,21 @@ class Zani {
 		return results;
 	}
 
+	/** Search the collection provided for greater than equal to via the attribute, compared to the value. and
+	 * returned to {@link Zani#find} for projection, grouping, and sorting as needed. If it was part of a compound search
+	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
+	 *
+	 * @async
+	 *
+	 * @see {@link Zani#find}
+	 * @see {@link Zani#findRouter}
+	 *
+	 * @param {string} collection - The name of the collection
+	 * @param {string} attribute The attribute name to have the comparison performed on
+	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
+	 *
+	 * @returns {object[]}
+	 */
 	async findGreaterThanEqual(collection, attribute, value) {
 		this.logger.log(`Greater than equal to ${value} for ${attribute}`, this.databaseName);
 
@@ -630,6 +665,21 @@ class Zani {
 		return results;
 	}
 
+	/** Search the collection provided for less than via the attribute, compared to the value. and
+	 * returned to {@link Zani#find} for projection, grouping, and sorting as needed. If it was part of a compound search
+	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
+	 *
+	 * @async
+	 *
+	 * @see {@link Zani#find}
+	 * @see {@link Zani#findRouter}
+	 *
+	 * @param {string} collection - The name of the collection
+	 * @param {string} attribute The attribute name to have the comparison performed on
+	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
+	 *
+	 * @returns {object[]}
+	 */
 	async findLessThan(collection, attribute, value) {
 		this.logger.log(`Less than ${value} for ${attribute}`, this.databaseName);
 
@@ -651,6 +701,21 @@ class Zani {
 		return results;
 	}
 
+	/** Search the collection provided for less than equal to via the attribute, compared to the value. and
+	 * returned to {@link Zani#find} for projection, grouping, and sorting as needed. If it was part of a compound search
+	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
+	 *
+	 * @async
+	 *
+	 * @see {@link Zani#find}
+	 * @see {@link Zani#findRouter}
+	 *
+	 * @param {string} collection - The name of the collection
+	 * @param {string} attribute The attribute name to have the comparison performed on
+	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
+	 *
+	 * @returns {object[]}
+	 */
 	async findLessThanEqual(collection, attribute, value) {
 		this.logger.log(`Less than equal to ${value} for ${attribute}`, this.databaseName);
 
@@ -708,14 +773,60 @@ class Zani {
 		return results;
 	}
 
+	/** Search the collection provided for inequality via the attribute, compared to the value. and
+	 * returned to {@link Zani#find} for projection, grouping, and sorting as needed. If it was part of a compound search
+	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
+	 *
+	 * @async
+	 *
+	 * @see {@link Zani#find}
+	 * @see {@link Zani#findRouter}
+	 *
+	 * @param {string} collection - The name of the collection
+	 * @param {string} attribute The attribute name to have the comparison performed on
+	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
+	 *
+	 * @returns {object[]}
+	 */
 	async findNotEqual(collection, attribute, value) {
 		this.logger.log(`Not equal to ${value}`, this.databaseName);
 
 		var results = [];
+		const collectionSize =
+			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+
+		// Read through entire collection, search for results
+		for (var i = 1; i < collectionSize; i++) {
+			var entry = await this.getCollectionEntry(collection, i);
+			entry = JSON.parse(entry);
+
+			// If entry has attribute, compare. If conditions met, add to results array.
+			if (entry.hasOwnProperty(attribute)) {
+				if (entry[attribute] != value) results.push(entry);
+			}
+		}
+
 		return results;
 	}
 
 	/* ---------------------------- Logical Operators --------------------------- */
+	/** Dispatch queries with a logical and intersection of the results. Each part of the query will be sent to 
+	 * its corresponding method via {@link Zani#findRouter}, and return here. The results will then be
+	 * checked to ensure all values are within all results before returning just those values. 
+	 *  If it was part of a compound search using a JSON object, such as $or or $and, it will be returned 
+	 * to {@link Zani#findRouter} instead.
+	 *
+	 * @async
+	 *
+	 * @see {@link Zani#find}
+	 * @see {@link Zani#findRouter}
+	 *
+	 * @param {string} collection - The name of the collection
+	 * @param {string} attribute The attribute name to have the comparison performed on
+	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
+	 *
+	 * @returns {object[]}
+	 */
 	async findAnd(collection, attribute, value) {
 		this.logger.log(`Logical and ${value} for ${attribute}`, this.databaseName);
 
@@ -752,6 +863,22 @@ class Zani {
 		return results[0].filter(item => commonValues.has(item[attribute]));
 	}
 
+	/** Dispatch queries with a logical or union of the results. Each part of the query will be sent to 
+	 * its corresponding method via {@link Zani#findRouter}, and return here. The results will then be
+	 * checked for deduplication of all values and returned without removing any unique values. If it was part 
+	 * of a compound search using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
+	 *
+	 * @async
+	 *
+	 * @see {@link Zani#find}
+	 * @see {@link Zani#findRouter}
+	 *
+	 * @param {string} collection - The name of the collection
+	 * @param {string} attribute The attribute name to have the comparison performed on
+	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
+	 *
+	 * @returns {object[]}
+	 */
 	async findOr(collection, attribute, value) {
 		this.logger.log(`Logical or ${value} for ${attribute}`, this.databaseName);
 
@@ -766,11 +893,58 @@ class Zani {
 		return results;
 	}
 
+	/** Dispatch queries with a logical not union of the results. Each part of the query will be sent to 
+	 * its corresponding method via {@link Zani#findRouter}, and return here. The results will then be deduplicated
+	 * before checking the entire collection and returning just those not appearing in the query. If it was part of a 
+	 * compound search using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
+	 *
+	 * @async
+	 *
+	 * @see {@link Zani#find}
+	 * @see {@link Zani#findRouter}
+	 *
+	 * @param {string} collection - The name of the collection
+	 * @param {string} attribute The attribute name to have the comparison performed on
+	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
+	 *
+	 * @returns {object[]}
+	 */
 	async findNot(collection, attribute, value) {
 		this.logger.log(`Logical not ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
-		return results;
+		var notOperationResults = [];
+		const collectionSize =
+			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+
+		// Can just append results all to single array. Then, de-duplicate.
+		results.push(... await this.findRouter(collection, attribute, value));
+
+		// De-duplicate results
+		results = this.deduplicateResults(results);
+
+		var resultCount = results.length;
+
+		// Check with collection and collection all non-results form query
+		for(let i = 1; i<=collectionSize; i++) {
+			let found = false;
+			let element = JSON.parse(await this.getCollectionEntry(collection, i));
+			
+			// Compare each entry in collection to results
+			for(let j = 0; j<resultCount; j++) {
+				if(this.compareObjects(results[j], element)) {
+					found = true;
+					break;
+				}
+			}
+
+			// If entry not in results, append to return array
+			if(!found) {
+				notOperationResults.push(element);
+			}
+		}
+
+		return notOperationResults;
 	}
 
 	async findNand(collection, attribute, value) {
