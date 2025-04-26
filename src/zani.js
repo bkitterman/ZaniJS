@@ -50,6 +50,10 @@ class Zani {
 	};
 	/** Cleanup method used on process termination */
 	cleanupBound = this.#cleanup.bind(this);
+	/** Used for error handling */
+	errorBound = this.crashDetectorError.bind(this);
+	/** Used for rejection handling */
+	rejectionBound = this.crashDetectorRejection.bind(this);
 
 	/* --------------------------------- Aliases -------------------------------- */
 	setDatabase = this.useDatabase;
@@ -109,7 +113,10 @@ class Zani {
 		process.on('uncaughtException', this.cleanupBound);
 
 		// Set up any optional features
-		if (this.options.crashDetector) this.enableCrashDetector();
+		if (this.options.crashDetector) {
+			process.on('uncaughtException', this.errorBound);
+			process.on('unhandledRejection', this.rejectionBound);
+		};
 
 		// Set current database
 		if (databaseName) {
@@ -827,6 +834,7 @@ class Zani {
 	 *
 	 * @returns {object[]}
 	 */
+	//TODO And is broken. it cannot consider if it is the primary value, and is only used as a passway. This is not okay.
 	async findAnd(collection, attribute, value) {
 		this.logger.log(`Logical and ${value} for ${attribute}`, this.databaseName);
 
@@ -1259,37 +1267,42 @@ class Zani {
 	/*                                  Utilities                                 */
 	/* -------------------------------------------------------------------------- */
 
-	/** Enable crash detection handling. If the program were to crash, a log will be created.
+	/** If crash detection is enabled and the program were to crash, a log will be created.
 	 * The log will also be printed to console, if that flag is enabled.
+	 * 
+	 * This method is for errors.
 	 */
-	enableCrashDetector() {
-		// Log crash reports.
-		process.on('uncaughtException', (err) => {
-			this.logger.error('Uncaught exception', 'Fatal', `The program crashed. \n\n${err.stack}`);
+	crashDetectorError(reason) {
+		this.logger.error('Uncaught exception - The program crashed', 'Fatal',  `${reason} \n\n${reason.stack}`);
 
-			// Create crash folder if not eixsts
-			if (!fs.existsSync('crashReports')) fs.mkdirSync('crashReports');
+		// Create crash folder if not eixsts
+		if (!fs.existsSync('crashReports')) fs.mkdirSync('crashReports');
 
-			// Create crash report
-			fs.writeFileSync(
-				`crashReports\\crash-${Date.now()}.log`,
-				`[${new Date().toISOString()}]\n${err.stack}\n`,
-			);
-		});
+		// Create crash report
+		fs.writeFileSync(
+			`crashReports\\crash-${Date.now()}.log`,
+			`[${new Date().toISOString()}]\n${reason.stack}\n`,
+		);
+	}
 
-		// Log rejections
-		process.on('unhandledRejection', (reason) => {
-			this.logger.error('Uncaught rejection: ' + reason, 'Fatal');
+	/** If crash detection is enabled and the program were to crash, a log will be created.
+	 * The log will also be printed to console, if that flag is enabled.
+	 * 
+	 * This method is for rejections.
+	 */
+	crashDetectorRejection(reason) {
+		this.logger.error('Uncaught rejection - The program crashed', 'Fatal',  `${reason} \n\n${reason.stack}`);
 
-			// Create crash folder if not exists
-			if (!fs.existsSync('crashReports')) fs.mkdirSync('crashReports');
+		// Create crash folder if not exists
+		if (!fs.existsSync('crashReports')) fs.mkdirSync('crashReports');
 
-			// Create crash report
-			fs.writeFileSync(
-				`crashReports\\crash-${Date.now()}.log`,
-				`[${new Date().toISOString()}]\n${err.stack}\n`,
-			);
-		});
+		process.off('uncaughtException', this.errorBound);
+
+		// Create crash report
+		fs.writeFileSync(
+			`crashReports\\crash-${Date.now()}.log`,
+			`[${new Date().toISOString()}]\n${err.stack}\n`,
+		);
 	}
 
 	/** Cleans up any open files Zani may be using, updates the meta, and closes
@@ -1310,6 +1323,11 @@ class Zani {
 		process.off('SIGINT', this.cleanupBound);
 		process.off('SIGTERM', this.cleanupBound);
 		process.off('uncaughtException', this.cleanupBound);
+
+		if(this.options.crashDetector) {
+			process.off('uncaughtException', this.errorBound);
+			process.off('unhandledRejection', this.rejectionBound);
+		}
 
 		this.logger.log(`Process Terminated`);
 	}
