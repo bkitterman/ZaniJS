@@ -491,7 +491,8 @@ class Zani {
 			this.logger.error(`The collection ${collection} does not exist`, this.databaseName);
 			return;
 		}
-
+		
+		this.logger.log(`Starting query of ${collection}`);
 		var results = [];
 
 		// If no criteria is passed, get all collection
@@ -540,6 +541,7 @@ class Zani {
 			// Rearrange results to match
 		}
 
+		this.logger.log('Query Complete', this.databaseName);
 		return results;
 	}
 
@@ -587,7 +589,7 @@ class Zani {
 				results.push(
 					... await this.queryOperators[element](collection, attribute, criteria[element]),
 				);
-			} else if (typeof criteria[element] === 'object') {
+			} else if (typeof criteria[element] === 'object' && !Array.isArray(criteria[element])) {
 				results.push(... await this.findAnd(collection, element, criteria[element]));
 			} else {
 				// TODO make this more efficient, right now it passes over everything n times where n = criteria props.
@@ -763,6 +765,7 @@ class Zani {
 		this.logger.log(`Equal to ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
+		var isArray = Array.isArray(value);
 		const collectionSize =
 			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
 
@@ -773,7 +776,12 @@ class Zani {
 
 			// If entry has attribute, compare. If conditions met, add to results array.
 			if (entry.hasOwnProperty(attribute)) {
-				if (entry[attribute] === value) results.push(entry);
+				// If multiple values, compare all
+				if(isArray) {
+					if (value.includes(entry[attribute])) results.push(entry);
+				// If one value, compare
+				}else
+ 					if (entry[attribute] === value) results.push(entry);
 			}
 		}
 
@@ -837,38 +845,63 @@ class Zani {
 	//TODO And is broken. it cannot consider if it is the primary value, and is only used as a passway. This is not okay.
 	async findAnd(collection, attribute, value) {
 		this.logger.log(`Logical and ${value} for ${attribute}`, this.databaseName);
-
+		
 		var results = [];
 		var searchParameters = Object.getOwnPropertyNames(value);
 		var searchCount = searchParameters.length;
+		var queryCount = 0;
 
 		// Compile results from query, each query is individual row of 2d array
-		for (let i = 0; i < searchCount; i++) {
-			results[i] = await this.queryOperators[searchParameters[i]](
-				collection,
-				attribute,
-				value[searchParameters[i]],
-			);
+		for (const element of searchParameters) {
+			if (element.charAt(0) === '$') {
+				results[queryCount] = await this.queryOperators[element](collection, attribute, value[element]);
+			} else if (typeof value[element] === 'object' && !Array.isArray(value[element])) {
+				results[queryCount] = await this.findAnd(collection, element, value[element]);
+			} else {
+				// TODO make this more efficient, right now it passes over everything n times where n = criteria props.
+				// 		Combine all non $ params and have it iterate 1 time over everything and compare each to all
+				results[queryCount] = await this.findEqual(collection, element, value[element]);
+			}
+			queryCount++;
 		}
 
 		// if no results found, or only one row (one query), skip rest of method
 		if (results.length <= 1) return results[0];
 
+		// If attribute is provided, compare with that
+		if(attribute) {
+			// Start with elements from the first row
+			let commonValues = new Set(results[0].map(item => item[attribute]));
+
+			// Check set for intersections
+			for (let i = 1; i < searchCount; i++) {
+				let currentRow = new Set(results[i].map(item => item[attribute]));
+	
+				// Keep only elements that are in both sets
+				commonValues = new Set([...commonValues].filter(val => currentRow.has(val)));
+	
+				// Early exit if there's nothing in common
+				if (commonValues.size === 0) break;
+			}
+	
+			return results[0].filter(item => commonValues.has(item[attribute]));	
+		}
+
+		// If there is no attribute provided, check via object itself.
 		// Start with elements from the first row
-		let commonValues = new Set(results[0].map(item => item[attribute]));
+		let commonValues = new Set(results[0].map(item => item));
 
 		// Check set for intersections
 		for (let i = 1; i < searchCount; i++) {
-			let currentRow = new Set(results[i].map(item => item[attribute]));
+			let currentRow = new Set(results[i].map(item => item));
 
 			// Keep only elements that are in both sets
-			commonValues = new Set([...commonValues].filter(val => currentRow.has(val)));
+			commonValues = new Set([...commonValues].filter(item => this.isInArray(currentRow, item)));
 
 			// Early exit if there's nothing in common
 			if (commonValues.size === 0) break;
 		}
-
-		return results[0].filter(item => commonValues.has(item[attribute]));
+		return results[0].filter(item => this.isInArray(commonValues, item));
 	}
 
 	/** Dispatch queries with a logical or union of the results. Each part of the query will be sent to 
@@ -1261,6 +1294,21 @@ class Zani {
 
 		// If all passed, they are the same.
 		return true;
+	}
+
+	/** Search through a given array, or set, for a object using {@link zani#compareObjects}. If it is
+	 * found, return true. Else, return faalse.
+	 * 
+	 * @param {any[]} array - The array or similar object to check 
+	 * @param {object} obj - The object to search for
+	 * @returns {boolean}
+	 */
+	isInArray(array, obj) {
+		for(const element of array) {
+			if(this.compareObjects(element, obj)) return true;
+		}
+
+		return false;
 	}
 
 	/* -------------------------------------------------------------------------- */
