@@ -780,8 +780,9 @@ class Zani {
 				if(isArray) {
 					if (value.includes(entry[attribute])) results.push(entry);
 				// If one value, compare
-				}else
- 					if (entry[attribute] === value) results.push(entry);
+				} else {
+					if (entry[attribute] === value) results.push(entry);
+				}
 			}
 		}
 
@@ -804,9 +805,10 @@ class Zani {
 	 * @returns {object[]}
 	 */
 	async findNotEqual(collection, attribute, value) {
-		this.logger.log(`Not equal to ${value}`, this.databaseName);
+		this.logger.log(`Not equal to ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
+		var isArray = Array.isArray(value);
 		const collectionSize =
 			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
 
@@ -817,9 +819,18 @@ class Zani {
 
 			// If entry has attribute, compare. If conditions met, add to results array.
 			if (entry.hasOwnProperty(attribute)) {
-				if (entry[attribute] != value) results.push(entry);
+				console.log(entry[attribute] + " vs " + value);
+				// If multiple values, compare all
+				if(isArray) {
+					if (!value.includes(entry[attribute])) results.push(entry);
+				// If one value, compare
+				} else {
+					if (entry[attribute] != value) results.push(entry);
+				}
 			}
 		}
+
+		console.log(results);
 
 		return results;
 	}
