@@ -819,7 +819,6 @@ class Zani {
 
 			// If entry has attribute, compare. If conditions met, add to results array.
 			if (entry.hasOwnProperty(attribute)) {
-				console.log(entry[attribute] + " vs " + value);
 				// If multiple values, compare all
 				if(isArray) {
 					if (!value.includes(entry[attribute])) results.push(entry);
@@ -829,8 +828,6 @@ class Zani {
 				}
 			}
 		}
-
-		console.log(results);
 
 		return results;
 	}
@@ -853,7 +850,6 @@ class Zani {
 	 *
 	 * @returns {object[]}
 	 */
-	//TODO And is broken. it cannot consider if it is the primary value, and is only used as a passway. This is not okay.
 	async findAnd(collection, attribute, value) {
 		this.logger.log(`Logical and ${value} for ${attribute}`, this.databaseName);
 		
