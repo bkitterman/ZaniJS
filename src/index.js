@@ -10,16 +10,13 @@ main();
 async function main() {
 	var db = new Zani('Test');
 	var result = await db.find('tester2', {
-		$or: { 
-			value: { $lte: 10, $gt: 3 },
-			_id: 22,
-		},
-		$not: {value: {$gte: 40}},
-		_id: 32,
+		_id: 32, // Cannot read last value for some reason
 	}, {
 		_id: 1,
 		value: 1
 	});
 
+	console.log('\n\n---------------Results---------------')
 	console.log(result);
+	console.log('\n');
 }

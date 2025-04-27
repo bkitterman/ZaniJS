@@ -625,7 +625,7 @@ class Zani {
 			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
 
 		// Read through entire collection, search for results
-		for (var i = 1; i < collectionSize; i++) {
+		for (var i = 1; i <= collectionSize; i++) {
 			var entry = await this.getCollectionEntry(collection, i);
 			entry = JSON.parse(entry);
 
@@ -661,7 +661,7 @@ class Zani {
 			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
 
 		// Read through entire collection, search for results
-		for (var i = 1; i < collectionSize; i++) {
+		for (var i = 1; i <= collectionSize; i++) {
 			var entry = await this.getCollectionEntry(collection, i);
 			entry = JSON.parse(entry);
 
@@ -697,7 +697,7 @@ class Zani {
 			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
 
 		// Read through entire collection, search for results
-		for (var i = 1; i < collectionSize; i++) {
+		for (var i = 1; i <= collectionSize; i++) {
 			var entry = await this.getCollectionEntry(collection, i);
 			entry = JSON.parse(entry);
 
@@ -733,7 +733,7 @@ class Zani {
 			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
 
 		// Read through entire collection, search for results
-		for (var i = 1; i < collectionSize; i++) {
+		for (var i = 1; i <= collectionSize; i++) {
 			var entry = await this.getCollectionEntry(collection, i);
 			entry = JSON.parse(entry);
 
@@ -770,7 +770,7 @@ class Zani {
 			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
 
 		// Read through entire collection, search for results
-		for (var i = 1; i < collectionSize; i++) {
+		for (var i = 1; i <=collectionSize; i++) {
 			var entry = await this.getCollectionEntry(collection, i);
 			entry = JSON.parse(entry);
 
@@ -811,7 +811,7 @@ class Zani {
 			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
 
 		// Read through entire collection, search for results
-		for (var i = 1; i < collectionSize; i++) {
+		for (var i = 1; i <= collectionSize; i++) {
 			var entry = await this.getCollectionEntry(collection, i);
 			entry = JSON.parse(entry);
 
