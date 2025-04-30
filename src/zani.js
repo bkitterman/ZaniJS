@@ -14,7 +14,14 @@ const ZaniLog = require('./zaniLog');
 	- Create options for collections, such as deduplication, unique, constraints, domains
 	- Add a repair meta method in case of entries becoming out of sync with files
 	- Add a repair collection file in case of formatting error (IE formatted file, breaking line/entry)
+	- Add a function that exports an entire database into a single file
+		- Requires a export() function to build file from data
+		- Requires a import() function to build project from data file
 */
+//! Zani only works at single level objects and cannot consider nested objects. IE
+/**
+ * entry: {foo: "bar"}, foo cannot be checked. 
+ */
 
 /** A lightweight, out-of-memory NoSQL Document Store database system.
  *
@@ -621,8 +628,7 @@ class Zani {
 		this.logger.log(`Greater than ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
-		const collectionSize =
-			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+		const collectionSize = this.getCollectionSize(collection);
 
 		// Read through entire collection, search for results
 		for (var i = 1; i <= collectionSize; i++) {
@@ -657,8 +663,7 @@ class Zani {
 		this.logger.log(`Greater than equal to ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
-		const collectionSize =
-			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+		const collectionSize = this.getCollectionSize(collection);
 
 		// Read through entire collection, search for results
 		for (var i = 1; i <= collectionSize; i++) {
@@ -693,8 +698,7 @@ class Zani {
 		this.logger.log(`Less than ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
-		const collectionSize =
-			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+		const collectionSize = this.getCollectionSize(collection);
 
 		// Read through entire collection, search for results
 		for (var i = 1; i <= collectionSize; i++) {
@@ -729,8 +733,7 @@ class Zani {
 		this.logger.log(`Less than equal to ${value} for ${attribute}`, this.databaseName);
 
 		var results = [];
-		const collectionSize =
-			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+		const collectionSize = this.getCollectionSize(collection);
 
 		// Read through entire collection, search for results
 		for (var i = 1; i <= collectionSize; i++) {
@@ -766,8 +769,7 @@ class Zani {
 
 		var results = [];
 		var isArray = Array.isArray(value);
-		const collectionSize =
-			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+		const collectionSize = this.getCollectionSize(collection);
 
 		// Read through entire collection, search for results
 		for (var i = 1; i <=collectionSize; i++) {
@@ -809,8 +811,7 @@ class Zani {
 
 		var results = [];
 		var isArray = Array.isArray(value);
-		const collectionSize =
-			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+		const collectionSize = this.getCollectionSize(collection);
 
 		// Read through entire collection, search for results
 		for (var i = 1; i <= collectionSize; i++) {
@@ -962,8 +963,7 @@ class Zani {
 
 		var results = [];
 		var notOperationResults = [];
-		const collectionSize =
-			this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+		const collectionSize = this.getCollectionSize(collection);
 
 		// Can just append results all to single array. Then, de-duplicate.
 		results.push(... await this.findRouter(collection, attribute, value));
@@ -1039,10 +1039,47 @@ class Zani {
 	}
 
 	/* ---------------------------- Misc. Comparison ---------------------------- */
+	/** Search a collection for a all values that exist. To exist, a attribute must be present 
+	 * in the entry and not be undefined, an array of length 0, or a empty object.
+	 * 
+	 * @param {string} collection - The name of the collection
+	 * @param {string=} attribute - The calling attribute. It is unused as of now.
+	 * @param {string} value - The name of the attribute to check
+	 * @returns {object[]}
+	 */
 	async findExists(collection, attribute, value) {
-		this.logger.log(`Comp Exists ${value} for ${attribute}`, this.databaseName);
+		this.logger.log(`Exists ${value} for ${attribute}`, this.databaseName);
+
+		// Check if has attribute
+			// If string/bool/number, ensure not undefined
+			// Check if array, ensure not empty
+			// Check if object, ensure not empty
+		// Return all that match the above values
 
 		var results = [];
+		const collectionSize = this.getCollectionSize(collection);
+		
+		// Read through entire collection, search for results
+		for (var i = 1; i <=collectionSize; i++) {
+			var entry = await this.getCollectionEntry(collection, i);
+			entry = JSON.parse(entry);
+
+			// If entry has attribute, ensure not empty or undefined
+			if (entry.hasOwnProperty(value)) {
+				var checkValue = entry[value]
+
+				if(Array.isArray(checkValue)) {
+					if (checkValue.length !== 0) results.push(entry);
+				// If object, ensure not empty
+				} else if(typeof checkValue == 'object') {
+					if (Object.keys(checkValue).length !== 0) results.push(entry);
+				// If neither, ensure its not defined
+				} else {
+					if(checkValue) results.push(entry);
+				}
+			}
+		}
+
 		return results;
 	}
 
@@ -1172,6 +1209,17 @@ class Zani {
 		});
 
 		return index;
+	}
+
+	/** Given a collection name, return the length/number of entries in the collection. 
+	 * 
+	 * Note: This value is not 0 index. Entry 1 is 1.
+	 * 
+	 * @param {string} collection - Name of the collection
+	 * @returns {number} Collection length
+	 */
+	getCollectionSize(collection) {
+		return this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
 	}
 
 	/** Given a entry (line) number of a collection (file), return that entry.
