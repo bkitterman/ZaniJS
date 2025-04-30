@@ -1,16 +1,23 @@
 // Node Imports
 const fs = require('fs');
 const path = require('path');
-const readline = require('readline');
 
 // Custom Imports
 const ZaniLog = require('./zaniLog');
 
-//TODO list
+//TODO list in order of precedence 
 /*
+	- Change query system to be entry based rather than condition based (What it is now)
+		- This comes first. It may change next steps (IE with nested objects)
+	- Fix nested objects problem (See below).
+	- Finish query functions
+	- Create a MD documentation of query to follow
+	- Clean up code
+	- Optimize where needed
+	- Test everything
+		- Create mass data files, test all cases and edges
 	- Add function that creates a txt file of the attributes within each collection, like a meta.pdf
 		- To build on a method that returns a json of values (IE {value: number, obj: {n: string}})
-	- Create a MD documentation of query to follow
 	- Create options for collections, such as deduplication, unique, constraints, domains
 	- Add a repair meta method in case of entries becoming out of sync with files
 	- Add a repair collection file in case of formatting error (IE formatted file, breaking line/entry)
@@ -18,10 +25,26 @@ const ZaniLog = require('./zaniLog');
 		- Requires a export() function to build file from data
 		- Requires a import() function to build project from data file
 */
-//! Zani only works at single level objects and cannot consider nested objects. IE
-/**
- * entry: {foo: "bar"}, foo cannot be checked. 
- */
+
+//! Zani only works at single level objects and cannot consider nested objects. IE, in the bellow example,
+//! 	foo cannot be checked, as it is out of reach. 
+//* entry: {foo: "bar"}, 
+
+/*
+? This issue could be fixed via a implementation of a stack object (build custom) that has two functions.
+?		The first is to peek/push/pop, which will be called before traversal, on arrival, and after traversal
+?			This can be added in as the 'attribute' parameter in find
+?		The second is to check if the address (length of stack) is greater than 1. If it is, it is a nested
+?		object and must be handled differently. if it is not, it can be treated as code is now. 
+*/
+
+/*
+! NOTE: Currently, using a for each condition -> for each entry -> test condition approach which is slow
+todo	Change this to a for each entry -> for each condition -> Test condition
+?		Benefits: Faster, can short circuit (IE range, AND condition), might be deduplicated by nature?
+?		How to do it:
+?			Similar logic as is now, change to passing entry around and globalized query. 
+*/
 
 /** A lightweight, out-of-memory NoSQL Document Store database system.
  *
@@ -39,7 +62,7 @@ class Zani {
 		createdOn: Date.now(),
 		lastUpdatedOn: Date.now(),
 		collections: [
-			//Keep list of collection as {name: string, entries: 0}
+			// Keep list of collection as {name: string, entries: 0}
 			// Entries are used as primary key index counter for _id
 		],
 		config: {
@@ -451,6 +474,23 @@ class Zani {
 		if (!entry) {
 			this.logger.error(`No entry value was passed.`, this.databaseName);
 			return;
+		}
+
+		// Check the entry is not empty
+		if(entry.keys.length===0) {
+			this.logger.error(`The entry value passed has no attributes.`, this.databaseName);
+			return;
+		}
+
+		// Check that there are no empty values in entry
+		for(const key in entry) {
+			if(!entry[key]) {
+				this.logger.error(`Entry value passed contains empty value(s).`, this.databaseName,
+					`The value ${key} in entry is undefined. Please ensure all attributes in the entry contain one of the following:` +
+					`an array, object, number, boolean, or string.`
+				);
+				return;
+			}
 		}
 
 		// Get metadata index, _id for entry
