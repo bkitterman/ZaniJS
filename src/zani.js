@@ -4,9 +4,28 @@ const path = require('path');
 
 // Custom Imports
 const ZaniLog = require('./zaniLog');
+const BPlusTree = require('./bPlusTree');
 
-//TODO list in order of precedence 
+//TODO list in order of precedence
 /*
+	- Add indexing for next step (Split system, each b+ node is a json in jsonl)
+		- This includes a createIndex() method for user definition, and auto based on metadata queryStats
+		- Do not index _id by default, it is the pointer and is redundant
+		- Create system to allow for constraints to be placed on the attributes/collections
+			- Primary key, ranges, value types, etc.
+			- Stored in meta.collections as an array of objects (array[0] is primary key) with format
+				{
+					attribute: attributeName,
+					constraints: {
+						domain: {upper: num, lower: num}
+						primary: boolean
+						foreign?: boolean?
+						unique: boolean
+
+					}
+				}
+			- If it is within the meta.collections.attributes array, it is a required field. Constraints must always
+			  be upheld, no exceptions.
 	- Change query system to be entry based rather than condition based (What it is now)
 		- This comes first. It may change next steps (IE with nested objects)
 	- Fix nested objects problem (See below).
@@ -27,8 +46,8 @@ const ZaniLog = require('./zaniLog');
 */
 
 //! Zani only works at single level objects and cannot consider nested objects. IE, in the bellow example,
-//! 	foo cannot be checked, as it is out of reach. 
-//* entry: {foo: "bar"}, 
+//! 	foo cannot be checked, as it is out of reach.
+//* entry: {foo: "bar"},
 
 /*
 ? This issue could be fixed via a implementation of a stack object (build custom) that has two functions.
@@ -54,6 +73,7 @@ class Zani {
 	/* -------------------------------------------------------------------------- */
 	/*                                Global States                               */
 	/* -------------------------------------------------------------------------- */
+	/* ------------------------------ Global States ----------------------------- */
 	/** Hard coded version of the code */
 	version = 1.0;
 	/** Hard coded, default metadata */
@@ -61,10 +81,11 @@ class Zani {
 		version: 1.0,
 		createdOn: Date.now(),
 		lastUpdatedOn: Date.now(),
-		collections: [
-			// Keep list of collection as {name: string, entries: 0}
+		collections: {
+			// Keep list of collection as name: {entries: 0, queryStats: {attribute: count}}
 			// Entries are used as primary key index counter for _id
-		],
+			// Query states is for auto-indexing of attributes when needed. If query states > 10, it will auto-index that attribute
+		},
 		config: {
 			compression: false,
 			encryption: false,
@@ -76,7 +97,6 @@ class Zani {
 			checksum: 'abc123',
 			dirty: false,
 		},
-		databaseName: 'ZaniDatabase',
 	};
 	/** Cleanup method used on process termination */
 	cleanupBound = this.#cleanup.bind(this);
@@ -106,6 +126,7 @@ class Zani {
 	/** The options object used for settings of this class and its behavior. Can be set with {@link Zani#configureOptions} */
 	options = {
 		bufferSize: 256,
+		treeOrder: 100,
 		crashDetector: true,
 		consoleOptions: {
 			systemLog: true,
@@ -146,7 +167,7 @@ class Zani {
 		if (this.options.crashDetector) {
 			process.on('uncaughtException', this.errorBound);
 			process.on('unhandledRejection', this.rejectionBound);
-		};
+		}
 
 		// Set current database
 		if (databaseName) {
@@ -176,6 +197,7 @@ class Zani {
 	configureOptions(options) {
 		if (options.hasOwnProperty('bufferSize')) this.options.bufferSize = options.bufferSize;
 		if (options.hasOwnProperty('crashDetector')) this.options.crashDetector = options.crashDetector;
+		if (options.hasOwnProperty('treeOrder')) this.options.treeOrder = options.treeOrder;
 
 		if (options.hasOwnProperty('consoleOptions'))
 			this.logger.configureOptions(options.consoleOptions);
@@ -266,12 +288,15 @@ class Zani {
 	#openDatabase() {
 		//Check if database folder exists
 		if (!fs.existsSync(this.databaseName)) fs.mkdirSync(this.databaseName);
+
 		// Check if database contains a collection folder
 		if (!fs.existsSync(this.databaseName + '\\collections'))
 			fs.mkdirSync(this.databaseName + '\\collections');
+
 		// Check if database contains a index folder
 		if (!fs.existsSync(this.databaseName + '\\indexes'))
 			fs.mkdirSync(this.databaseName + '\\indexes');
+
 		// Check if database contains a log folder
 		if (!fs.existsSync(this.databaseName + '\\logs')) fs.mkdirSync(this.databaseName + '\\logs');
 
@@ -321,8 +346,16 @@ class Zani {
 		// Create collection file
 		fs.writeFileSync(`${this.databaseName}\\collections\\${collection}.jsonl`, '');
 
+		// Create Collection Index Folder
+		fs.mkdirSync(`${this.databaseName}\\indexes\\${collection}`)
+
 		// Update metadata, add collection
-		this.meta.collections.push({ name: collection, entries: 0 });
+		Object.defineProperty(this.meta.collections, collection, {
+			value: { entries: 0, queryStats: {} },
+			writable: true,
+			enumerable: true,
+		});
+		console.log(this.meta.collections);
 		this.updateMetaFile();
 
 		this.logger.log(`Added collection ${collection} to ${this.databaseName}`);
@@ -345,18 +378,16 @@ class Zani {
 			return;
 		}
 
-		// Check if the collection exists
-		if (!this.checkForCollection(collection)) {
-			this.logger.error(`The collection ${collection} does not exist.`, this.databaseName);
-			return;
-		}
-
-		// Delete the file
-		fs.rmSync(`${this.databaseName}\\collections\\${collection}.jsonl`);
-
 		// Update metadata, remove collection
-		this.meta.collections = this.meta.collections.filter((item) => item.name !== collection);
-		this.updateMetaFile();
+		if(this.meta.collections[collection]) {
+			delete this.meta.collections[collection];
+			this.updateMetaFile();
+		}
+		
+		// Delete the file
+		if(fs.existsSync(`${this.databaseName}\\collections\\${collection}.jsonl`)) {
+			fs.rmSync(`${this.databaseName}\\collections\\${collection}.jsonl`);
+		}
 
 		this.logger.log(`Deleted collection ${collection}`, this.databaseName);
 	}
@@ -398,12 +429,12 @@ class Zani {
 		);
 
 		// Update metadata file, rename object associated
-		this.meta.collections.forEach((element) => {
-			if (element.name === collection) {
-				element.name = newName;
-				return;
-			}
+		Object.defineProperty(this.meta.collections, newName, {
+			value: this.meta.collections[collection],
+			writable: true,
+			enumerable: true,
 		});
+		delete this.meta.collections[collection];
 		this.updateMetaFile();
 
 		this.logger.log(`Renamed collection ${collection} to ${newName}`, this.databaseName);
@@ -446,6 +477,81 @@ class Zani {
 	}
 
 	/* -------------------------------------------------------------------------- */
+	/*                             Indexing Operations                            */
+	/* -------------------------------------------------------------------------- */
+	
+	/*
+	TODO
+		AddEntry with indexing
+		RemoveEntry with indexing (This means deleting as well)
+		UpdateCollection needs to work with index folder
+		RemoveCollection needs to work with index folder
+
+	*/
+
+	/** Given a collection name, index the values for the provided attribute name. This index
+	 * will then be used going forwards to increase query speed, but may result in slightly slower insert,
+	 * deletion, and update speeds.
+	 *
+	 * @async
+	 *
+	 * @param {string} collection - The collection to be indexed.
+	 * @param {string} attribute - The attribute to index.
+	 */
+	async createIndex(collection, attribute) {
+		// Check if there is an active database
+		if (!this.checkForActiveDatabase()) return;
+
+		// Check if a collection name was passed
+		if (!collection) {
+			this.logger.error('No collection name provided', this.databaseName);
+			return;
+		}
+
+		// Check if the collection exists
+		if (!this.checkForCollection(collection)) {
+			this.logger.error(`The collection ${collection} does not exist.`, this.databaseName);
+			return;
+		}
+
+		// Check if attribute was passed
+		if (!attribute) {
+			this.logger.error('No attribute name provided', this.databaseName);
+			return;
+		}
+
+		const indexPath = `${this.databaseName}\\indexes\\${collection}\\${attribute}`;
+
+		// Check if attribute is already indexed
+		if (fs.existsSync(indexPath)) {
+			this.logger.error(
+				`The attribute ${attribute} of ${collection} has already been indexed.`,
+				this.databaseName,
+			);
+			return;
+		}
+
+		// Create Index Files
+		fs.mkdirSync(indexPath);
+
+		// Create the BPlusTree structure
+		//TODO update when the index files are included in BPlusTree.
+		var indexTree = new BPlusTree(indexPath, 10);
+		var collectionSize = this.getCollectionSize(collection);
+
+		// Check each entry for the attribute. If it exists, add to the tree.
+		//! Note: If an entry is missing the attribute, it is not included in the index.
+		for (let i = 1; i <= collectionSize; i++) {
+			let entry = JSON.parse(await this.getCollectionEntry(collection, i));
+			if (entry.hasOwnProperty(attribute)) {
+				indexTree.insert(entry[attribute], entry._id);
+			}
+		}
+
+		this.logger.log(`Created index files for ${attribute}`, this.databaseName);
+	}
+
+	/* -------------------------------------------------------------------------- */
 	/*                          Collection Entry Methods                          */
 	/* -------------------------------------------------------------------------- */
 
@@ -475,27 +581,28 @@ class Zani {
 			this.logger.error(`No entry value was passed.`, this.databaseName);
 			return;
 		}
-
+		
 		// Check the entry is not empty
-		if(entry.keys.length===0) {
+		if (Object.keys(entry).length === 0) {
 			this.logger.error(`The entry value passed has no attributes.`, this.databaseName);
 			return;
 		}
 
 		// Check that there are no empty values in entry
-		for(const key in entry) {
-			if(!entry[key]) {
-				this.logger.error(`Entry value passed contains empty value(s).`, this.databaseName,
+		for (const key in entry) {
+			if (!entry[key]) {
+				this.logger.error(
+					`Entry value passed contains empty value(s).`,
+					this.databaseName,
 					`The value ${key} in entry is undefined. Please ensure all attributes in the entry contain one of the following:` +
-					`an array, object, number, boolean, or string.`
+						`an array, object, number, boolean, or string.`,
 				);
 				return;
 			}
 		}
 
 		// Get metadata index, _id for entry
-		const index = this.getCollectionIndexFromMeta(collection);
-		const id = this.meta.collections[index].entries++;
+		const id = this.meta.collections[collection].entries++;
 
 		// Add property for _id
 		entry = Object.defineProperty(entry, '_id', {
@@ -524,6 +631,25 @@ class Zani {
 
 	//TODO create a single object variant
 	async find(collection, criteria, project, sort) {
+		this.logger.log('Smart search method. Unbuilt at this time.');
+
+		// For each part of the query, check to see if there are indexed attributes
+		//		If all are indexed, use findFromIndex method
+		//		if some are indexed, use findFromIndex for those with indexes, use findFromAll for non-indexed.
+		// 		If none are indexed, use findFromAll for query.
+	}
+
+	/* ----------------------------- Full Scan Query ---------------------------- */
+	/** Perform a query operation on the collection provided. This option of query is slow, and will search
+	 * each entry in the collection for each condition. This method is best used for indexing.
+	 *
+	 * @param {string} collection - The name of the collection to search
+	 * @param {object=} criteria - The query/Search condition object
+	 * @param {object=} project - The projection object
+	 * @param {object=} sort - The sort object
+	 * @returns {object[]} The results of the query
+	 */
+	async findFromIndexed(collection, criteria, project, sort) {
 		// Check if active database
 		if (!this.checkForActiveDatabase()) return;
 
@@ -538,15 +664,16 @@ class Zani {
 			this.logger.error(`The collection ${collection} does not exist`, this.databaseName);
 			return;
 		}
-		
+
 		this.logger.log(`Starting query of ${collection}`);
 		var results = [];
+		var entryCount = this.getCollectionSize(collection);
 
 		// If no criteria is passed, get all collection
 		if (!criteria) {
 			results = this.getCollection(collection);
 		} else {
-			results.push(... await this.findRouter(collection, undefined, criteria));
+			results.push(...(await this.findRouter(collection, undefined, criteria)));
 		}
 
 		// TODO group by clause here
@@ -634,14 +761,14 @@ class Zani {
 		for (const element of searchParameters) {
 			if (element.charAt(0) === '$') {
 				results.push(
-					... await this.queryOperators[element](collection, attribute, criteria[element]),
+					...(await this.queryOperators[element](collection, attribute, criteria[element])),
 				);
 			} else if (typeof criteria[element] === 'object' && !Array.isArray(criteria[element])) {
-				results.push(... await this.findAnd(collection, element, criteria[element]));
+				results.push(...(await this.findAnd(collection, element, criteria[element])));
 			} else {
 				// TODO make this more efficient, right now it passes over everything n times where n = criteria props.
 				// 		Combine all non $ params and have it iterate 1 time over everything and compare each to all
-				results.push(... await this.findEqual(collection, element, criteria[element]));
+				results.push(...(await this.findEqual(collection, element, criteria[element])));
 			}
 		}
 
@@ -812,16 +939,16 @@ class Zani {
 		const collectionSize = this.getCollectionSize(collection);
 
 		// Read through entire collection, search for results
-		for (var i = 1; i <=collectionSize; i++) {
+		for (var i = 1; i <= collectionSize; i++) {
 			var entry = await this.getCollectionEntry(collection, i);
 			entry = JSON.parse(entry);
 
 			// If entry has attribute, compare. If conditions met, add to results array.
 			if (entry.hasOwnProperty(attribute)) {
 				// If multiple values, compare all
-				if(isArray) {
+				if (isArray) {
 					if (value.includes(entry[attribute])) results.push(entry);
-				// If one value, compare
+					// If one value, compare
 				} else {
 					if (entry[attribute] === value) results.push(entry);
 				}
@@ -861,9 +988,9 @@ class Zani {
 			// If entry has attribute, compare. If conditions met, add to results array.
 			if (entry.hasOwnProperty(attribute)) {
 				// If multiple values, compare all
-				if(isArray) {
+				if (isArray) {
 					if (!value.includes(entry[attribute])) results.push(entry);
-				// If one value, compare
+					// If one value, compare
 				} else {
 					if (entry[attribute] != value) results.push(entry);
 				}
@@ -874,10 +1001,10 @@ class Zani {
 	}
 
 	/* ---------------------------- Logical Operators --------------------------- */
-	/** Dispatch queries with a logical and intersection of the results. Each part of the query will be sent to 
+	/** Dispatch queries with a logical and intersection of the results. Each part of the query will be sent to
 	 * its corresponding method via {@link Zani#findRouter}, and return here. The results will then be
-	 * checked to ensure all values are within all results before returning just those values. 
-	 *  If it was part of a compound search using a JSON object, such as $or or $and, it will be returned 
+	 * checked to ensure all values are within all results before returning just those values.
+	 *  If it was part of a compound search using a JSON object, such as $or or $and, it will be returned
 	 * to {@link Zani#findRouter} instead.
 	 *
 	 * @async
@@ -893,7 +1020,7 @@ class Zani {
 	 */
 	async findAnd(collection, attribute, value) {
 		this.logger.log(`Logical and ${value} for ${attribute}`, this.databaseName);
-		
+
 		var results = [];
 		var searchParameters = Object.getOwnPropertyNames(value);
 		var searchCount = searchParameters.length;
@@ -902,7 +1029,11 @@ class Zani {
 		// Compile results from query, each query is individual row of 2d array
 		for (const element of searchParameters) {
 			if (element.charAt(0) === '$') {
-				results[queryCount] = await this.queryOperators[element](collection, attribute, value[element]);
+				results[queryCount] = await this.queryOperators[element](
+					collection,
+					attribute,
+					value[element],
+				);
 			} else if (typeof value[element] === 'object' && !Array.isArray(value[element])) {
 				results[queryCount] = await this.findAnd(collection, element, value[element]);
 			} else {
@@ -917,44 +1048,44 @@ class Zani {
 		if (results.length <= 1) return results[0];
 
 		// If attribute is provided, compare with that
-		if(attribute) {
+		if (attribute) {
 			// Start with elements from the first row
-			let commonValues = new Set(results[0].map(item => item[attribute]));
+			let commonValues = new Set(results[0].map((item) => item[attribute]));
 
 			// Check set for intersections
 			for (let i = 1; i < searchCount; i++) {
-				let currentRow = new Set(results[i].map(item => item[attribute]));
-	
+				let currentRow = new Set(results[i].map((item) => item[attribute]));
+
 				// Keep only elements that are in both sets
-				commonValues = new Set([...commonValues].filter(val => currentRow.has(val)));
-	
+				commonValues = new Set([...commonValues].filter((val) => currentRow.has(val)));
+
 				// Early exit if there's nothing in common
 				if (commonValues.size === 0) break;
 			}
-	
-			return results[0].filter(item => commonValues.has(item[attribute]));	
+
+			return results[0].filter((item) => commonValues.has(item[attribute]));
 		}
 
 		// If there is no attribute provided, check via object itself.
 		// Start with elements from the first row
-		let commonValues = new Set(results[0].map(item => item));
+		let commonValues = new Set(results[0].map((item) => item));
 
 		// Check set for intersections
 		for (let i = 1; i < searchCount; i++) {
-			let currentRow = new Set(results[i].map(item => item));
+			let currentRow = new Set(results[i].map((item) => item));
 
 			// Keep only elements that are in both sets
-			commonValues = new Set([...commonValues].filter(item => this.isInArray(currentRow, item)));
+			commonValues = new Set([...commonValues].filter((item) => this.isInArray(currentRow, item)));
 
 			// Early exit if there's nothing in common
 			if (commonValues.size === 0) break;
 		}
-		return results[0].filter(item => this.isInArray(commonValues, item));
+		return results[0].filter((item) => this.isInArray(commonValues, item));
 	}
 
-	/** Dispatch queries with a logical or union of the results. Each part of the query will be sent to 
+	/** Dispatch queries with a logical or union of the results. Each part of the query will be sent to
 	 * its corresponding method via {@link Zani#findRouter}, and return here. The results will then be
-	 * checked for deduplication of all values and returned without removing any unique values. If it was part 
+	 * checked for deduplication of all values and returned without removing any unique values. If it was part
 	 * of a compound search using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
 	 *
 	 * @async
@@ -974,7 +1105,7 @@ class Zani {
 		var results = [];
 
 		// Can just append results all to single array. Then, de-duplicate.
-		results.push(... await this.findRouter(collection, attribute, value));
+		results.push(...(await this.findRouter(collection, attribute, value)));
 
 		// De-duplicate results
 		results = this.deduplicateResults(results);
@@ -982,9 +1113,9 @@ class Zani {
 		return results;
 	}
 
-	/** Dispatch queries with a logical not union of the results. Each part of the query will be sent to 
+	/** Dispatch queries with a logical not union of the results. Each part of the query will be sent to
 	 * its corresponding method via {@link Zani#findRouter}, and return here. The results will then be deduplicated
-	 * before checking the entire collection and returning just those not appearing in the query. If it was part of a 
+	 * before checking the entire collection and returning just those not appearing in the query. If it was part of a
 	 * compound search using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
 	 *
 	 * @async
@@ -1006,7 +1137,7 @@ class Zani {
 		const collectionSize = this.getCollectionSize(collection);
 
 		// Can just append results all to single array. Then, de-duplicate.
-		results.push(... await this.findRouter(collection, attribute, value));
+		results.push(...(await this.findRouter(collection, attribute, value)));
 
 		// De-duplicate results
 		results = this.deduplicateResults(results);
@@ -1014,20 +1145,20 @@ class Zani {
 		var resultCount = results.length;
 
 		// Check with collection and collection all non-results form query
-		for(let i = 1; i<=collectionSize; i++) {
+		for (let i = 1; i <= collectionSize; i++) {
 			let found = false;
 			let element = JSON.parse(await this.getCollectionEntry(collection, i));
-			
+
 			// Compare each entry in collection to results
-			for(let j = 0; j<resultCount; j++) {
-				if(this.compareObjects(results[j], element)) {
+			for (let j = 0; j < resultCount; j++) {
+				if (this.compareObjects(results[j], element)) {
 					found = true;
 					break;
 				}
 			}
 
 			// If entry not in results, append to return array
-			if(!found) {
+			if (!found) {
 				notOperationResults.push(element);
 			}
 		}
@@ -1079,9 +1210,9 @@ class Zani {
 	}
 
 	/* ---------------------------- Misc. Comparison ---------------------------- */
-	/** Search a collection for a all values that exist. To exist, a attribute must be present 
+	/** Search a collection for a all values that exist. To exist, a attribute must be present
 	 * in the entry and not be undefined, an array of length 0, or a empty object.
-	 * 
+	 *
 	 * @param {string} collection - The name of the collection
 	 * @param {string=} attribute - The calling attribute. It is unused as of now.
 	 * @param {string} value - The name of the attribute to check
@@ -1091,31 +1222,31 @@ class Zani {
 		this.logger.log(`Exists ${value} for ${attribute}`, this.databaseName);
 
 		// Check if has attribute
-			// If string/bool/number, ensure not undefined
-			// Check if array, ensure not empty
-			// Check if object, ensure not empty
+		// If string/bool/number, ensure not undefined
+		// Check if array, ensure not empty
+		// Check if object, ensure not empty
 		// Return all that match the above values
 
 		var results = [];
 		const collectionSize = this.getCollectionSize(collection);
-		
+
 		// Read through entire collection, search for results
-		for (var i = 1; i <=collectionSize; i++) {
+		for (var i = 1; i <= collectionSize; i++) {
 			var entry = await this.getCollectionEntry(collection, i);
 			entry = JSON.parse(entry);
 
 			// If entry has attribute, ensure not empty or undefined
 			if (entry.hasOwnProperty(value)) {
-				var checkValue = entry[value]
+				var checkValue = entry[value];
 
-				if(Array.isArray(checkValue)) {
+				if (Array.isArray(checkValue)) {
 					if (checkValue.length !== 0) results.push(entry);
-				// If object, ensure not empty
-				} else if(typeof checkValue == 'object') {
+					// If object, ensure not empty
+				} else if (typeof checkValue == 'object') {
 					if (Object.keys(checkValue).length !== 0) results.push(entry);
-				// If neither, ensure its not defined
+					// If neither, ensure its not defined
 				} else {
-					if(checkValue) results.push(entry);
+					if (checkValue) results.push(entry);
 				}
 			}
 		}
@@ -1132,7 +1263,7 @@ class Zani {
 
 	/* ------------------------- Query Result operations ------------------------ */
 	/** Provided an array of entries, remove all duplicate entries and return an array with only unique elements.
-	 * 
+	 *
 	 * @param {object[]} results - An array of entries for deduplication
 	 * @returns {object[]}
 	 */
@@ -1141,26 +1272,26 @@ class Zani {
 		let resultCount = results.length;
 
 		// Cycle through each result provided
-		for(var i = 0; i<resultCount; i++) {
+		for (var i = 0; i < resultCount; i++) {
 			let element = results[i];
 			let found = false;
-			let params = Object.getOwnPropertyNames(element);// Just in case
+			let params = Object.getOwnPropertyNames(element); // Just in case
 
 			// Check that element is not in deduplicated results array
-			for(var j = 0; j<deduplicatedResults.length; j++) {
-				if(this.compareObjects(deduplicatedResults[j], element)) {
+			for (var j = 0; j < deduplicatedResults.length; j++) {
+				if (this.compareObjects(deduplicatedResults[j], element)) {
 					found = true;
 					break;
 				}
 			}
 
 			// If result was not in array, add
-			if(!found) deduplicatedResults.push(element);
+			if (!found) deduplicatedResults.push(element);
 		}
 
 		return deduplicatedResults;
 	}
-	
+
 	project(results, value) {
 		this.logger.log(`Projection ${value}`, this.databaseName);
 	}
@@ -1200,16 +1331,10 @@ class Zani {
 	 * @returns {boolean}
 	 */
 	checkForCollection(collection) {
-		if (!this.checkForActiveDatabase()) return;
+		if (!this.checkForActiveDatabase()) return; //TODO fix this, its redundant as its checked everywehere before it checked here
 
 		// Check if the collection is within meta.json collection list
-		let found = false;
-		this.meta.collections.forEach((element) => {
-			if (element.name === collection) {
-				found = true;
-				return;
-			}
-		});
+		let found = this.meta.collections.hasOwnProperty(collection);
 
 		if (found) {
 			// Check if the collection file exists
@@ -1229,37 +1354,15 @@ class Zani {
 		return false;
 	}
 
-	/** Retrieves the index of the collection in the metadata file collections array.
+	/** Given a collection name, return the length/number of entries in the collection.
 	 *
-	 * @param {string} collection - The name of the collection
-	 * @returns {number}
-	 */
-	getCollectionIndexFromMeta(collection) {
-		// Check if a collection value was passed
-		if (!collection) {
-			this.logger.error(`No collection provided, cannot determine index`, this.databaseName);
-			return;
-		}
-
-		// Locate the collection in the metadata array.
-		let index = 0;
-		this.meta.collections.forEach((element) => {
-			if (element.name === collection) return index;
-			index++;
-		});
-
-		return index;
-	}
-
-	/** Given a collection name, return the length/number of entries in the collection. 
-	 * 
 	 * Note: This value is not 0 index. Entry 1 is 1.
-	 * 
+	 *
 	 * @param {string} collection - Name of the collection
 	 * @returns {number} Collection length
 	 */
 	getCollectionSize(collection) {
-		return this.meta.collections[this.getCollectionIndexFromMeta(collection)].entries;
+		return this.meta.collections[collection].entries;
 	}
 
 	/** Given a entry (line) number of a collection (file), return that entry.
@@ -1348,22 +1451,24 @@ class Zani {
 	/** Compare two objects by all parameters, and then return true or false. It will first check by _id, and
 	 * if its not present, it will check that all attributes and values are aligned. If any different, it will
 	 * be false.
-	 * 
+	 *
 	 * @param {object} obj1 - The first object to compare
 	 * @param {object} obj2 - The second object to compare
 	 * @returns {boolean}
 	 */
 	compareObjects(obj1, obj2) {
 		// Check both objects are passed
-		if(obj1 === undefined || obj2 === undefined) {
-			this.logger.error(`Either one or both objects are undefined, and cannot be compared`, this.databaseName);
+		if (obj1 === undefined || obj2 === undefined) {
+			this.logger.error(
+				`Either one or both objects are undefined, and cannot be compared`,
+				this.databaseName,
+			);
 			return false;
 		}
 
 		// If both have a _id property, compare.
-		if(obj1.hasOwnProperty('_id') && obj1.hasOwnProperty('_id')) {
-			if(obj1._id === obj2._id) 
-				return true;
+		if (obj1.hasOwnProperty('_id') && obj1.hasOwnProperty('_id')) {
+			if (obj1._id === obj2._id) return true;
 			return false;
 		}
 
@@ -1371,20 +1476,17 @@ class Zani {
 		var obj1Keys = Object.getOwnPropertyNames(obj1).sort();
 		var obj2Keys = Object.getOwnPropertyNames(obj2).sort();
 
-		
 		// Ensure attributes are the same before checking values
-		if(obj1Keys.length != obj2Keys.length) return false;
+		if (obj1Keys.length != obj2Keys.length) return false;
 
 		var keyLength = obj1Keys.length;
-		for(let i = 0; i<keyLength; i++) {
-			if(obj1Keys[i]!=obj2Keys[i])
-				return false;
+		for (let i = 0; i < keyLength; i++) {
+			if (obj1Keys[i] != obj2Keys[i]) return false;
 		}
 
 		// Check attribute values
-		for(let i = 0; i<keyLength; i++) {
-			if(obj1[obj1Keys[i]]!=obj2[obj2Keys[i]])
-				return false;
+		for (let i = 0; i < keyLength; i++) {
+			if (obj1[obj1Keys[i]] != obj2[obj2Keys[i]]) return false;
 		}
 
 		// If all passed, they are the same.
@@ -1393,14 +1495,14 @@ class Zani {
 
 	/** Search through a given array, or set, for a object using {@link zani#compareObjects}. If it is
 	 * found, return true. Else, return faalse.
-	 * 
-	 * @param {any[]} array - The array or similar object to check 
+	 *
+	 * @param {any[]} array - The array or similar object to check
 	 * @param {object} obj - The object to search for
 	 * @returns {boolean}
 	 */
 	isInArray(array, obj) {
-		for(const element of array) {
-			if(this.compareObjects(element, obj)) return true;
+		for (const element of array) {
+			if (this.compareObjects(element, obj)) return true;
 		}
 
 		return false;
@@ -1412,11 +1514,15 @@ class Zani {
 
 	/** If crash detection is enabled and the program were to crash, a log will be created.
 	 * The log will also be printed to console, if that flag is enabled.
-	 * 
+	 *
 	 * This method is for errors.
 	 */
 	crashDetectorError(reason) {
-		this.logger.error('Uncaught exception - The program crashed', 'Fatal',  `${reason} \n\n${reason.stack}`);
+		this.logger.error(
+			'Uncaught exception - The program crashed',
+			'Fatal',
+			`${reason} \n\n${reason.stack}`,
+		);
 
 		// Create crash folder if not eixsts
 		if (!fs.existsSync('crashReports')) fs.mkdirSync('crashReports');
@@ -1430,11 +1536,15 @@ class Zani {
 
 	/** If crash detection is enabled and the program were to crash, a log will be created.
 	 * The log will also be printed to console, if that flag is enabled.
-	 * 
+	 *
 	 * This method is for rejections.
 	 */
 	crashDetectorRejection(reason) {
-		this.logger.error('Uncaught rejection - The program crashed', 'Fatal',  `${reason} \n\n${reason.stack}`);
+		this.logger.error(
+			'Uncaught rejection - The program crashed',
+			'Fatal',
+			`${reason} \n\n${reason.stack}`,
+		);
 
 		// Create crash folder if not exists
 		if (!fs.existsSync('crashReports')) fs.mkdirSync('crashReports');
@@ -1467,7 +1577,7 @@ class Zani {
 		process.off('SIGTERM', this.cleanupBound);
 		process.off('uncaughtException', this.cleanupBound);
 
-		if(this.options.crashDetector) {
+		if (this.options.crashDetector) {
 			process.off('uncaughtException', this.errorBound);
 			process.off('unhandledRejection', this.rejectionBound);
 		}
