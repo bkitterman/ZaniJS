@@ -43,6 +43,7 @@ const BPlusTree = require('./bPlusTree');
 	- Add a function that exports an entire database into a single file
 		- Requires a export() function to build file from data
 		- Requires a import() function to build project from data file
+	- Consider a terminal-listener for real time data modification and access
 */
 
 //! Zani only works at single level objects and cannot consider nested objects. IE, in the bellow example,
@@ -82,7 +83,7 @@ class Zani {
 		createdOn: Date.now(),
 		lastUpdatedOn: Date.now(),
 		collections: {
-			// Keep list of collection as name: {entries: 0, queryStats: {attribute: count}}
+			// Keep list of collection as name: {entries: 0, queryStats: {attribute: count}, indexed: [attribute]}
 			// Entries are used as primary key index counter for _id
 			// Query states is for auto-indexing of attributes when needed. If query states > 10, it will auto-index that attribute
 		},
@@ -347,15 +348,14 @@ class Zani {
 		fs.writeFileSync(`${this.databaseName}\\collections\\${collection}.jsonl`, '');
 
 		// Create Collection Index Folder
-		fs.mkdirSync(`${this.databaseName}\\indexes\\${collection}`)
+		fs.mkdirSync(`${this.databaseName}\\indexes\\${collection}`);
 
 		// Update metadata, add collection
 		Object.defineProperty(this.meta.collections, collection, {
-			value: { entries: 0, queryStats: {} },
+			value: { entries: 0, queryStats: {}, indexed: [] },
 			writable: true,
 			enumerable: true,
 		});
-		console.log(this.meta.collections);
 		this.updateMetaFile();
 
 		this.logger.log(`Added collection ${collection} to ${this.databaseName}`);
@@ -379,15 +379,18 @@ class Zani {
 		}
 
 		// Update metadata, remove collection
-		if(this.meta.collections[collection]) {
+		if (this.meta.collections[collection]) {
 			delete this.meta.collections[collection];
 			this.updateMetaFile();
 		}
-		
+
 		// Delete the file
-		if(fs.existsSync(`${this.databaseName}\\collections\\${collection}.jsonl`)) {
+		if (fs.existsSync(`${this.databaseName}\\collections\\${collection}.jsonl`)) {
 			fs.rmSync(`${this.databaseName}\\collections\\${collection}.jsonl`);
 		}
+
+		// Delete index files
+		fs.rmSync(`${this.databaseName}\\indexes\\${collection}`, {recursive: true, force: true});
 
 		this.logger.log(`Deleted collection ${collection}`, this.databaseName);
 	}
@@ -426,6 +429,12 @@ class Zani {
 		fs.renameSync(
 			`${this.databaseName}\\collections\\${collection}.jsonl`,
 			`${this.databaseName}\\collections\\${newName}.jsonl`,
+		);
+
+		// Rename Index Folder
+		fs.renameSync(
+			`${this.databaseName}\\indexes\\${collection}`,
+			`${this.databaseName}\\indexes\\${newName}`
 		);
 
 		// Update metadata file, rename object associated
@@ -479,14 +488,10 @@ class Zani {
 	/* -------------------------------------------------------------------------- */
 	/*                             Indexing Operations                            */
 	/* -------------------------------------------------------------------------- */
-	
+
 	/*
 	TODO
-		AddEntry with indexing
 		RemoveEntry with indexing (This means deleting as well)
-		UpdateCollection needs to work with index folder
-		RemoveCollection needs to work with index folder
-
 	*/
 
 	/** Given a collection name, index the values for the provided attribute name. This index
@@ -538,6 +543,7 @@ class Zani {
 		//TODO update when the index files are included in BPlusTree.
 		var indexTree = new BPlusTree(indexPath, 10);
 		var collectionSize = this.getCollectionSize(collection);
+		this.meta.collections[collection].indexed.push(attribute);
 
 		// Check each entry for the attribute. If it exists, add to the tree.
 		//! Note: If an entry is missing the attribute, it is not included in the index.
@@ -551,6 +557,7 @@ class Zani {
 		this.logger.log(`Created index files for ${attribute}`, this.databaseName);
 	}
 
+	
 	/* -------------------------------------------------------------------------- */
 	/*                          Collection Entry Methods                          */
 	/* -------------------------------------------------------------------------- */
@@ -581,7 +588,7 @@ class Zani {
 			this.logger.error(`No entry value was passed.`, this.databaseName);
 			return;
 		}
-		
+
 		// Check the entry is not empty
 		if (Object.keys(entry).length === 0) {
 			this.logger.error(`The entry value passed has no attributes.`, this.databaseName);
@@ -590,7 +597,7 @@ class Zani {
 
 		// Check that there are no empty values in entry
 		for (const key in entry) {
-			if (!entry[key]) {
+			if (entry[key]===undefined) {
 				this.logger.error(
 					`Entry value passed contains empty value(s).`,
 					this.databaseName,
@@ -622,6 +629,15 @@ class Zani {
 		);
 		this.updateMetaFile();
 
+		// Add any values into their respective index
+		for(const key in entry) {
+			if(this.meta.collections[collection].indexed.includes(key)) {
+				const tree = new BPlusTree(`${this.databaseName}\\indexes\\${collection}\\${key}`);
+				tree.insert(entry[key], entry._id);
+				this.logger.log(`Updated index of ${collection}\\${key} with value ${entry[key]}`);
+			}
+		}
+ 
 		this.logger.log(`Added entry: ${id} to ${collection}`, this.databaseName);
 	}
 
@@ -1261,6 +1277,7 @@ class Zani {
 		return results;
 	}
 
+
 	/* ------------------------- Query Result operations ------------------------ */
 	/** Provided an array of entries, remove all duplicate entries and return an array with only unique elements.
 	 *
@@ -1302,6 +1319,7 @@ class Zani {
 
 	//TODO count methods
 	//TODO group method
+
 
 	/* -------------------------------------------------------------------------- */
 	/*                               Helper Methods                               */

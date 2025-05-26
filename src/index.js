@@ -14,32 +14,25 @@ main();
 //! WARNING: Zani only works with BASE LEVEL. It cannot consider nested objects. Need fixed.
 
 async function main() {
-
 	//searchTest();
 	//createTestCollection();
 
-	// Reset indexes
-	//fs.rmSync('Test\\indexes\\Testing\\value', {recursive: true, force: true});
-	
-	db.createIndex("Testing", "value");
-
-	
 }
 
 function createTestCollection() {
-	db.createCollection("TestCollection");
+	db.createCollection('TestCollection');
 
-	for(let i = 0; i<50; i++) {
-		db.addEntry("TestCollection", {value: 50-i});
+	for (let i = 0; i < 50; i++) {
+		db.addEntry('TestCollection', { value: 50 - i });
 	}
 }
 
 async function searchTest() {
 	var result = await db.find('NULL', {
-		$exists: "_id"
-	},);
+		$exists: '_id',
+	});
 
-	console.log('\n\n---------------Results---------------')
+	console.log('\n\n---------------Results---------------');
 	console.log(result);
 	console.log('\n');
 }
