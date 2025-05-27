@@ -93,6 +93,9 @@ class BPlusTree {
 	 * @param {any} value - The value to store at the key.
 	 */
 	insert(key, value) {
+		if(!key || !value)
+			return;
+
 		this.updatedMetaValues = false; // Reset
 		const result = this.insertRecursive(this.root, key, value);
 
