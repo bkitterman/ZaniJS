@@ -128,7 +128,7 @@ class BPlusTree {
 	insertRecursive(node, key, value) {
 		// If node is a leaf, attempt insert
 		if (node.isLeaf) {
-			if (!node.values[key]) node.keys.push(key);
+			if (!Object.hasOwnProperty.call(node.values, key)) node.keys.push(key);
 			node.values[key] = node.values[key] || [];
 			node.values[key].push(value);
 
@@ -288,7 +288,7 @@ class BPlusTree {
 		// If at leaf, remove value from key
 		if (node.isLeaf) {
 			// Check if key is in values
-			if (!node.values[key]) return false;
+			if (!Object.hasOwnProperty.call(node.values, key)) return false;
 
 			// Check if valueToRemove is within the key's value array.
 			const index = node.values[key].indexOf(valueToRemove);

@@ -8,6 +8,18 @@ const BPlusTree = require('./bPlusTree');
 
 //TODO list in order of precedence
 /*
+	- Rewrite file storage to be single json, where _id is a file number pointer (with padding)
+		- One entry per file
+		- Stored in collection folder
+		- Sharded between folders, where first digit in _id (1st of 5 digits) is folder
+			- IE folder 0 -> 0-9,999, 1 -> 10,000-19,999
+		- implement .trash folder later for safer deletion of items
+			 DOWNSIDES: Reads whole file into memory on operations
+			 	File management, but shouldn't be too difficult
+				May need to figure out how to handle collections of size greater than 99,999 since it won't work with padding of 5 spaces
+			 UPSIDES: Real time updates (OR buffered later), no need to compact (Might add later to reduce file count)
+			 	Gets rid of overhead to parse collection file to desired line count, replaced with FS overhead which is hopefully faster long run
+				works with current indexing scheme with minimimal changes
 	- Add indexing for next step (Split system, each b+ node is a json in jsonl)
 		- This includes a createIndex() method for user definition, and auto based on metadata queryStats
 		- Do not index _id by default, it is the pointer and is redundant
@@ -322,7 +334,7 @@ class Zani {
 	/*                            Collection Operations                           */
 	/* -------------------------------------------------------------------------- */
 
-	/** Adds a collection to the database. This includes creating the file and updating the metadata of
+	/** Adds a collection to the database. This includes creating the folder and updating the metadata of
 	 * this database.
 	 *
 	 * @param {string} collection - The name of the collection to add
@@ -344,15 +356,15 @@ class Zani {
 			return;
 		}
 
-		// Create collection file
-		fs.writeFileSync(`${this.databaseName}\\collections\\${collection}.jsonl`, '');
+		// Create collection folder
+		fs.mkdirSync(`${this.databaseName}\\collections\\${collection}`);
 
 		// Create Collection Index Folder
 		fs.mkdirSync(`${this.databaseName}\\indexes\\${collection}`);
 
 		// Update metadata, add collection
 		Object.defineProperty(this.meta.collections, collection, {
-			value: { entries: 0, queryStats: {}, indexed: [] },
+			value: { entries: 0, queryStats: {}, indexed: [], availableIDs: [] },
 			writable: true,
 			enumerable: true,
 		});
@@ -384,13 +396,16 @@ class Zani {
 			this.updateMetaFile();
 		}
 
-		// Delete the file
-		if (fs.existsSync(`${this.databaseName}\\collections\\${collection}.jsonl`)) {
-			fs.rmSync(`${this.databaseName}\\collections\\${collection}.jsonl`);
-		}
+		// Delete the collection folder
+		if (fs.existsSync(`${this.databaseName}\\collections\\${collection}`))
+			fs.rmSync(`${this.databaseName}\\collections\\${collection}`, {
+				recursive: true,
+				force: true,
+			});
 
 		// Delete index files
-		fs.rmSync(`${this.databaseName}\\indexes\\${collection}`, {recursive: true, force: true});
+		if (fs.existsSync(`${this.databaseName}\\indexes\\${collection}`))
+			fs.rmSync(`${this.databaseName}\\indexes\\${collection}`, { recursive: true, force: true });
 
 		this.logger.log(`Deleted collection ${collection}`, this.databaseName);
 	}
@@ -427,14 +442,14 @@ class Zani {
 
 		// Rename collection file
 		fs.renameSync(
-			`${this.databaseName}\\collections\\${collection}.jsonl`,
-			`${this.databaseName}\\collections\\${newName}.jsonl`,
+			`${this.databaseName}\\collections\\${collection}`,
+			`${this.databaseName}\\collections\\${newName}`,
 		);
 
 		// Rename Index Folder
 		fs.renameSync(
 			`${this.databaseName}\\indexes\\${collection}`,
-			`${this.databaseName}\\indexes\\${newName}`
+			`${this.databaseName}\\indexes\\${newName}`,
 		);
 
 		// Update metadata file, rename object associated
@@ -457,7 +472,7 @@ class Zani {
 	 * @param {string} collection - The collection to retrieve
 	 * @returns The collection array of objects
 	 */
-	getCollection(collection) {
+	getCollection(collection) { //TODO update this to match new schema
 		// Check if there is an active database
 		if (!this.checkForActiveDatabase()) return;
 
@@ -488,11 +503,6 @@ class Zani {
 	/* -------------------------------------------------------------------------- */
 	/*                             Indexing Operations                            */
 	/* -------------------------------------------------------------------------- */
-
-	/*
-	TODO
-		RemoveEntry with indexing (This means deleting as well)
-	*/
 
 	/** Given a collection name, index the values for the provided attribute name. This index
 	 * will then be used going forwards to increase query speed, but may result in slightly slower insert,
@@ -541,15 +551,15 @@ class Zani {
 
 		// Create the BPlusTree structure
 		//TODO update when the index files are included in BPlusTree.
-		var indexTree = new BPlusTree(indexPath, 10);
+		var indexTree = new BPlusTree(indexPath, 100);
 		var collectionSize = this.getCollectionSize(collection);
 		this.meta.collections[collection].indexed.push(attribute);
 
 		// Check each entry for the attribute. If it exists, add to the tree.
 		//! Note: If an entry is missing the attribute, it is not included in the index.
-		for (let i = 1; i <= collectionSize; i++) {
-			let entry = JSON.parse(await this.getCollectionEntry(collection, i));
-			if (entry.hasOwnProperty(attribute)) {
+		for (let i = 0; i < collectionSize; i++) {
+			let entry = this.getCollectionEntry(collection, i);
+			if (entry!==undefined && entry.hasOwnProperty(attribute)) {
 				indexTree.insert(entry[attribute], entry._id);
 			}
 		}
@@ -557,7 +567,6 @@ class Zani {
 		this.logger.log(`Created index files for ${attribute}`, this.databaseName);
 	}
 
-	
 	/* -------------------------------------------------------------------------- */
 	/*                          Collection Entry Methods                          */
 	/* -------------------------------------------------------------------------- */
@@ -597,7 +606,7 @@ class Zani {
 
 		// Check that there are no empty values in entry
 		for (const key in entry) {
-			if (entry[key]===undefined) {
+			if (entry[key] === undefined) {
 				this.logger.error(
 					`Entry value passed contains empty value(s).`,
 					this.databaseName,
@@ -609,7 +618,10 @@ class Zani {
 		}
 
 		// Get metadata index, _id for entry
-		const id = this.meta.collections[collection].entries++;
+		let id = 0;
+		if(this.meta.collections[collection].availableIDs.length>0) {
+			id = this.meta.collections[collection].availableIDs.pop();
+		}else id = this.meta.collections[collection].entries++;
 
 		// Add property for _id
 		entry = Object.defineProperty(entry, '_id', {
@@ -623,22 +635,126 @@ class Zani {
 		entry = { _id, ...rest };
 
 		// Add to collection
-		fs.appendFileSync(
-			`${this.databaseName}\\collections\\${collection}.jsonl`,
-			JSON.stringify(entry) + '\n',
-		);
+		const path = `${this.databaseName}\\collections\\${collection}\\${this.getEntryFolder(id)}`;
+		const pathFile = this.getEntryPath(collection, id);
+		if(!fs.existsSync(path)) {
+			fs.mkdirSync(path);
+		}
+
+		fs.writeFileSync(pathFile, JSON.stringify(entry));
 		this.updateMetaFile();
 
 		// Add any values into their respective index
-		for(const key in entry) {
-			if(this.meta.collections[collection].indexed.includes(key)) {
+		for (const key in entry) {
+			if (this.meta.collections[collection].indexed.includes(key)) {
 				const tree = new BPlusTree(`${this.databaseName}\\indexes\\${collection}\\${key}`);
 				tree.insert(entry[key], entry._id);
 				this.logger.log(`Updated index of ${collection}\\${key} with value ${entry[key]}`);
 			}
 		}
- 
+
 		this.logger.log(`Added entry: ${id} to ${collection}`, this.databaseName);
+	}
+
+	/** Delete an entry from the provided collection via its entry id, which is denoted as the attribute '_id".
+	 *
+	 * @param {string} collection - The name of the collection to operate on
+	 * @param {number} entryId - The entry id
+	 * @returns {boolean} - True if successful, false otherwise.
+	 */
+	deleteEntry(collection, entryId) {
+		// Check if there is an active database
+		if (!this.checkForActiveDatabase()) return;
+
+		// Check if a collection name was passed
+		if (!collection) {
+			this.logger.error('No collection name provided', this.databaseName);
+			return false;
+		}
+
+		// Check if the collection already exists
+		if (!this.checkForCollection(collection)) {
+			this.logger.error(`The collection ${collection} does not exist`, this.databaseName);
+			return false;
+		}
+
+		// Check if entry value was passed
+		if (!entryId) {
+			this.logger.error(`No entry value was passed.`, this.databaseName);
+			return false;
+		}
+
+		// Delete from collection file
+		const path = this.getEntryPath(collection, entryId);
+		const entryObject = JSON.parse(fs.readFileSync(path));
+		fs.unlinkSync(path);
+
+		// Add removed id to metadata
+		this.meta.collections[collection].availableIDs.push(entryId);
+		this.updateMetaFile();
+
+		// Delete from index files
+		for (const key in entryObject) {
+			if (this.meta.collections[collection].indexed.includes(key)) {
+				const tree = new BPlusTree(`${this.databaseName}\\indexes\\${collection}\\${key}`);
+				tree.delete(entryObject[key], entryId);
+				this.logger.log(
+					`Deleted ${entryId} of ${entryObject[key]} in index file for ${key}`,
+					this.databaseName,
+				);
+			}
+		}
+
+		this.logger.log(`Deleted ${entryId} from ${collection}`, this.databaseName);
+
+		return true;
+	}
+
+	
+	/** Given a entry (line) number of a collection (file), return that entry.
+	 *
+	 * Id starts at 0.
+	 *
+	 * @param {string} collection - The collection to retrieve from
+	 * @param {number} id - The desired line number
+	 *
+	 * @return {object}
+	 */
+	getCollectionEntry(collection, id) {
+		// Check if there is an active database
+		if (!this.checkForActiveDatabase()) return;
+
+		// Check if a collection name was passed
+		if (!collection) {
+			this.logger.error('No collection name provided', this.databaseName);
+			return;
+		}
+
+		// Check if the collection already exists
+		if (!this.checkForCollection(collection)) {
+			this.logger.error(`The collection ${collection} does not exist`, this.databaseName);
+			return;
+		}
+
+		// Check if a line number was passed
+		if (id===undefined) {
+			this.logger.error(`No entry id provided.`, this.databaseName);
+			return;
+		}
+
+		// Read file contents
+		const path = this.getEntryPath(collection, id);
+		if(fs.existsSync(path))
+			return JSON.parse(fs.readFileSync(path));
+		
+		// File does not exist due to deletion or error
+		return null;
+	}
+
+	testFunction(collection, attribute,  value) {
+		const tree = new BPlusTree(`${this.databaseName}\\indexes\\${collection}\\${attribute}`);
+		console.log(tree.search(value));
+		tree.delete(17, 17);
 	}
 
 	/* -------------------------------------------------------------------------- */
@@ -1277,7 +1393,6 @@ class Zani {
 		return results;
 	}
 
-
 	/* ------------------------- Query Result operations ------------------------ */
 	/** Provided an array of entries, remove all duplicate entries and return an array with only unique elements.
 	 *
@@ -1320,7 +1435,6 @@ class Zani {
 	//TODO count methods
 	//TODO group method
 
-
 	/* -------------------------------------------------------------------------- */
 	/*                               Helper Methods                               */
 	/* -------------------------------------------------------------------------- */
@@ -1341,7 +1455,7 @@ class Zani {
 		return true;
 	}
 
-	/** Checks if a collection file exists within the active database.
+	/** Checks if a collection folder/files exists within the active database.
 	 *
 	 * Note: if it is outside the scope of meta, it will not report true.
 	 *
@@ -1356,14 +1470,14 @@ class Zani {
 
 		if (found) {
 			// Check if the collection file exists
-			if (fs.existsSync(`${this.databaseName}\\collections\\${collection}.jsonl`)) return true;
+			if (fs.existsSync(`${this.databaseName}\\collections\\${collection}`)) return true;
 
 			// Log an error if it exists in meta but not in file.
 			this.logger.error(
-				`${collection}.jsonl does not exist`,
+				`${collection} folder does not exist`,
 				'CollectionCheck',
-				`The collection exists in the meta.json file, but the collection storage file cannot be located. ` +
-					`\nError locating collection jsonl at ${path.join(
+				`The collection exists in the meta.json file, but the collection storage folder, and thus, subsequent` +
+				`data files, cannot be located. \n\tError locating collection jsonl at ${path.join(
 						__dirname,
 						`${this.databaseName}\\collections\\${collection}.jsonl`,
 					)}`,
@@ -1383,81 +1497,25 @@ class Zani {
 		return this.meta.collections[collection].entries;
 	}
 
-	/** Given a entry (line) number of a collection (file), return that entry.
-	 *
-	 * Note: line number is NOT 0 indexed. Line 1 is 1.
-	 *
-	 * @param {string} collection - The collection to retrieve from
-	 * @param {number} lineNumber - The desired line number
-	 *
-	 * @return {string}
+	/** Returns the file path, including file name and extension, based on collection name and id.
+	 * 
+	 * @param {string} collection - The collection name
+	 * @param {number} id - The entry _id
+	 * @returns {string} - The file path to the entry
 	 */
-	//? useful for indexing?
-	getCollectionEntry(collection, lineNumber) {
-		// Check if there is an active database
-		if (!this.checkForActiveDatabase()) return;
+	getEntryPath(collection, id) {
+		const folder = this.getEntryFolder(id);
+		const formattedId = String(id).padStart(6, 0);
+		return `${this.databaseName}\\collections\\${collection}\\${folder}\\${formattedId}.json`;
+	}
 
-		// Check if a collection name was passed
-		if (!collection) {
-			this.logger.error('No collection name provided', this.databaseName);
-			return;
-		}
-
-		// Check if the collection already exists
-		if (!this.checkForCollection(collection)) {
-			this.logger.error(`The collection ${collection} does not exist`, this.databaseName);
-			return;
-		}
-
-		// Check if a line number was passed
-		if (!lineNumber) {
-			this.logger.error(`No line number provided.`, this.databaseName);
-			return;
-		}
-
-		// Read file contents
-		return new Promise((resolve, reject) => {
-			const stream = fs.createReadStream(`${this.databaseName}\\collections\\${collection}.jsonl`, {
-				encoding: 'utf-8',
-				highWaterMark: this.options.bufferSize < 1 ? this.options.bufferSize : undefined,
-			});
-
-			let currentLine = 0;
-			let content = '';
-
-			// Read file in search for line.
-			stream.on('data', (chunk) => {
-				content += chunk;
-
-				let lines = content.split('\n');
-				// Remove partial line (This may remove the last line if it is bellow buffer size)
-				content = lines.pop();
-
-				// If line number will not be in lines array, skip loop
-				if (lineNumber <= currentLine + lines.length) {
-					// Check lines for desired line
-					for (const line of lines) {
-						currentLine++;
-						if (currentLine === lineNumber) {
-							stream.close();
-							return resolve(line);
-						}
-					}
-					// Update current Line is loop is skipped
-				} else currentLine += lines.length;
-			});
-
-			// If the line is failed above, return the rest of file, which likely contains a last line removed by
-			// last line removed by content.pop();
-			stream.on('end', () => {
-				return resolve(content);
-			});
-
-			// In case of unknown error
-			stream.on('error', (err) => {
-				reject(err);
-			});
-		});
+	/** Return the folder name of the entry derived from the id.
+	 * 
+	 * @param {number} id - The entry _id 
+	 * @returns {string}
+	 */
+	getEntryFolder(id) {
+		return String(Math.floor(id/10000)).padStart(2, 0);
 	}
 
 	/** Update the meta.json object for the active database with the current meta object instance.	 *

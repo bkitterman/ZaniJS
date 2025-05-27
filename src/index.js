@@ -8,6 +8,7 @@ const fs = require('fs');
 
 // Custom Import
 const Zani = require('./zani');
+const { resolve } = require('path');
 var db = new Zani('Test');
 main();
 
@@ -15,15 +16,19 @@ main();
 
 async function main() {
 	//searchTest();
-	//createTestCollection();
+	//await createTestCollection();
 
+	
 }
 
-function createTestCollection() {
-	db.createCollection('TestCollection');
-
-	for (let i = 0; i < 50; i++) {
-		db.addEntry('TestCollection', { value: 50 - i });
+async function createTestCollection() {
+	db.createCollection('Testing');
+	for(let j = 0; j<40; j++) {
+		for (let i = 0; i < 300; i++) {
+			db.addEntry('Testing', { value: i+j*300 });
+		}
+		db.logger.warn('File batch ended, pausing', 'Test Server');
+		await new Promise ((resolve) => setTimeout(resolve, 10));
 	}
 }
 
