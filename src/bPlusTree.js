@@ -502,7 +502,7 @@ class BPlusTree {
 		this.saveNode(parent);
 		this.saveMeta();
 
-		// If parent underflows, rebalance recursively
+		// If parent under-flows, rebalance recursively
 		if (parent !== this.root && parent.keys.length < Math.ceil(this.meta.order / 2)) {
 			const grandParent = this.findParent(this.root, parent.id);
 			if (grandParent) {
