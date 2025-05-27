@@ -472,7 +472,8 @@ class Zani {
 	 * @param {string} collection - The collection to retrieve
 	 * @returns The collection array of objects
 	 */
-	getCollection(collection) { //TODO update this to match new schema
+	getCollection(collection) {
+		//TODO update this to match new schema
 		// Check if there is an active database
 		if (!this.checkForActiveDatabase()) return;
 
@@ -558,8 +559,8 @@ class Zani {
 		// Check each entry for the attribute. If it exists, add to the tree.
 		//! Note: If an entry is missing the attribute, it is not included in the index.
 		for (let i = 0; i < collectionSize; i++) {
-			let entry = this.getCollectionEntry(collection, i);
-			if (entry!==undefined && entry.hasOwnProperty(attribute)) {
+			let entry = this.getEntry(collection, i);
+			if (entry !== undefined && entry.hasOwnProperty(attribute)) {
 				indexTree.insert(entry[attribute], entry._id);
 			}
 		}
@@ -619,9 +620,15 @@ class Zani {
 
 		// Get metadata index, _id for entry
 		let id = 0;
-		if(this.meta.collections[collection].availableIDs.length>0) {
+		if (this.meta.collections[collection].availableIDs.length > 0) {
 			id = this.meta.collections[collection].availableIDs.pop();
-		}else id = this.meta.collections[collection].entries++;
+		} else id = this.meta.collections[collection].entries++;
+
+		// Ensure ID is not being defined by user
+		if(entry.hasOwnProperty('_id')) {
+			this.logger.warn('The attribute _id is reserved by the system, and will be ignored.');
+			delete entry._id;
+		}
 
 		// Add property for _id
 		entry = Object.defineProperty(entry, '_id', {
@@ -637,7 +644,7 @@ class Zani {
 		// Add to collection
 		const path = `${this.databaseName}\\collections\\${collection}\\${this.getEntryFolder(id)}`;
 		const pathFile = this.getEntryPath(collection, id);
-		if(!fs.existsSync(path)) {
+		if (!fs.existsSync(path)) {
 			fs.mkdirSync(path);
 		}
 
@@ -710,17 +717,16 @@ class Zani {
 		return true;
 	}
 
-	
-	/** Given a entry (line) number of a collection (file), return that entry.
+	/** Given a entry (file) number of a collection (folder), return that entry.
 	 *
 	 * Id starts at 0.
 	 *
 	 * @param {string} collection - The collection to retrieve from
-	 * @param {number} id - The desired line number
+	 * @param {number} id - The desired file number/entry id
 	 *
 	 * @return {object}
 	 */
-	getCollectionEntry(collection, id) {
+	getEntry(collection, id) {
 		// Check if there is an active database
 		if (!this.checkForActiveDatabase()) return;
 
@@ -737,24 +743,149 @@ class Zani {
 		}
 
 		// Check if a line number was passed
-		if (id===undefined) {
+		if (id === undefined) {
 			this.logger.error(`No entry id provided.`, this.databaseName);
 			return;
 		}
 
 		// Read file contents
 		const path = this.getEntryPath(collection, id);
-		if(fs.existsSync(path))
-			return JSON.parse(fs.readFileSync(path));
-		
+		if (fs.existsSync(path)) return JSON.parse(fs.readFileSync(path));
+
 		// File does not exist due to deletion or error
 		return null;
 	}
 
-	testFunction(collection, attribute,  value) {
-		const tree = new BPlusTree(`${this.databaseName}\\indexes\\${collection}\\${attribute}`);
-		console.log(tree.search(value));
-		tree.delete(17, 17);
+	/** Given a collection name, update a desired entry. These updates are made through the object passed, which
+	 * must contain a '_id" value to denote which object to update, as well as attributes for each addition.
+	 *
+	 * If these attributes are not present within the object already, they will be added to the entry. if they
+	 * are already present, the attribute will be overwritten with the new updated one. To delete an attribute,
+	 * pass the value for the attribute within the object as 'undefined'. If null is passed, it will be set to null
+	 * instead.
+	 *
+	 * @example
+	 * Exists: { value: 3, foo: "bar", type: { data: 0, type: 'string'} }
+	 * UpdatesToMake: { value: null, foo: undefined, type: { data: true } }
+	 * Results: { value: null, type: { data: true, type: 'string' } }
+	 *
+	 * @param {string} collection - The name of the collection
+	 * @param {object} updatesToMake - The desired updates for the entry
+	 */
+	updateEntry(collection, updatesToMake) {
+		// Check if there is an active database
+		if (!this.checkForActiveDatabase()) return;
+
+		// Check if a collection name was passed
+		if (!collection) {
+			this.logger.error('No collection name provided', this.databaseName);
+			return;
+		}
+
+		// Check if the collection already exists
+		if (!this.checkForCollection(collection)) {
+			this.logger.error(`The collection ${collection} does not exist`, this.databaseName);
+			return;
+		}
+
+		// Check the entry is not empty
+		if (Object.keys(updatesToMake).length === 0) {
+			this.logger.error(`The updatesToMake value passed has no attributes.`, this.databaseName);
+			return;
+		}
+
+		// Check updatesToMake has _id
+		if (updatesToMake._id === undefined) {
+			this.logger.error(
+				`The updatesToMake value passed has no '_id' attribute.`,
+				this.databaseName,
+			);
+			return;
+		}
+
+		// Check if file exists
+		var entry = this.getEntry(collection, updatesToMake._id);
+		if (entry === null) {
+			this.logger.error(
+				`The entry ${updatesToMake._id} does not exist within the collection ${collection}`,
+				this.databaseName,
+			);
+			return;
+		}
+
+		// Store original values for index removal post-update
+		const originalValues = {};
+		for(const key in updatesToMake) {
+			if(this.meta.collections[collection].indexed.includes(key))  {
+				Object.defineProperty(originalValues, key, {
+					value: entry[key] || null,
+					writable: false,
+					enumerable: true
+				})
+			}
+		}
+		
+		// Perform update operations recursively
+		entry = this.updateEntryRecursive(entry, updatesToMake);
+
+		// Push to disk
+		fs.writeFileSync(this.getEntryPath(collection, entry._id), JSON.stringify(entry));
+
+		// Update index file
+		for(const key in originalValues) {
+			const tree = new BPlusTree(`${this.databaseName}\\indexes\\${collection}\\${key}`);
+			if(originalValues[key] !== null) 
+				tree.delete(originalValues[key], entry._id);
+			if(entry.hasOwnProperty(key) && entry[key] !== null)
+				tree.insert(entry[key], entry._id);
+		}
+
+		this.logger.log(`Updated entry ${entry._id} in collection ${collection}`, this.databaseName);
+	}
+
+	/** Helper method for {@link Zani#updateEntry} that performs that actual object updates through recursion. 
+	 * It will pass through each value in updatesToMake and update entry accordingly by the following rules:
+	 * 
+	 * If these attributes are not present within the object already, they will be added to the entry. if they
+	 * are already present, the attribute will be overwritten with the new updated one. To delete an attribute,
+	 * pass the value for the attribute within the object as 'undefined'. If null is passed, it will be set to null
+	 * instead.
+	 *
+	 * @example
+	 * Exists: { value: 3, foo: "bar", type: { data: 0, type: 'string'} }
+	 * UpdatesToMake: { value: null, foo: undefined, type: { data: true } }
+	 * Results: { value: null, type: { data: true, type: 'string' } }
+	 *
+	 * @param {object} entry - The entry pulled from storage
+	 * @param {object} updatesToMake - The desired updates for the entry
+	 */
+	updateEntryRecursive(entry, updatesToMake) {
+		for (const key in updatesToMake) {
+			if (key === '_id') continue;
+
+			if (typeof updatesToMake[key] === 'object' && updatesToMake[key]!==null && entry.hasOwnProperty(key)) {
+				if(entry[key] !== null && typeof entry[key] === 'object') {
+					entry[key] = this.updateEntryRecursive(entry[key], updatesToMake[key]);
+				} else {
+					entry[key] = updatesToMake[key];
+				}
+			}else if (entry.hasOwnProperty(key)) {
+				if (updatesToMake[key] === undefined) {
+					delete entry[key];
+				} else {
+					entry[key] = updatesToMake[key];
+				}
+			} else {
+				if(updatesToMake[key]===undefined) continue;
+				Object.defineProperty(entry, key, {
+					value: updatesToMake[key],
+					writable: true,
+					enumerable: true,
+				});
+			}
+		}
+
+		return entry;
 	}
 
 	/* -------------------------------------------------------------------------- */
@@ -931,7 +1062,7 @@ class Zani {
 
 		// Read through entire collection, search for results
 		for (var i = 1; i <= collectionSize; i++) {
-			var entry = await this.getCollectionEntry(collection, i);
+			var entry = await this.getEntry(collection, i);
 			entry = JSON.parse(entry);
 
 			// If entry has attribute, compare. If conditions met, add to results array.
@@ -966,7 +1097,7 @@ class Zani {
 
 		// Read through entire collection, search for results
 		for (var i = 1; i <= collectionSize; i++) {
-			var entry = await this.getCollectionEntry(collection, i);
+			var entry = await this.getEntry(collection, i);
 			entry = JSON.parse(entry);
 
 			// If entry has attribute, compare. If conditions met, add to results array.
@@ -1001,7 +1132,7 @@ class Zani {
 
 		// Read through entire collection, search for results
 		for (var i = 1; i <= collectionSize; i++) {
-			var entry = await this.getCollectionEntry(collection, i);
+			var entry = await this.getEntry(collection, i);
 			entry = JSON.parse(entry);
 
 			// If entry has attribute, compare. If conditions met, add to results array.
@@ -1036,7 +1167,7 @@ class Zani {
 
 		// Read through entire collection, search for results
 		for (var i = 1; i <= collectionSize; i++) {
-			var entry = await this.getCollectionEntry(collection, i);
+			var entry = await this.getEntry(collection, i);
 			entry = JSON.parse(entry);
 
 			// If entry has attribute, compare. If conditions met, add to results array.
@@ -1072,7 +1203,7 @@ class Zani {
 
 		// Read through entire collection, search for results
 		for (var i = 1; i <= collectionSize; i++) {
-			var entry = await this.getCollectionEntry(collection, i);
+			var entry = await this.getEntry(collection, i);
 			entry = JSON.parse(entry);
 
 			// If entry has attribute, compare. If conditions met, add to results array.
@@ -1114,7 +1245,7 @@ class Zani {
 
 		// Read through entire collection, search for results
 		for (var i = 1; i <= collectionSize; i++) {
-			var entry = await this.getCollectionEntry(collection, i);
+			var entry = await this.getEntry(collection, i);
 			entry = JSON.parse(entry);
 
 			// If entry has attribute, compare. If conditions met, add to results array.
@@ -1279,7 +1410,7 @@ class Zani {
 		// Check with collection and collection all non-results form query
 		for (let i = 1; i <= collectionSize; i++) {
 			let found = false;
-			let element = JSON.parse(await this.getCollectionEntry(collection, i));
+			let element = JSON.parse(await this.getEntry(collection, i));
 
 			// Compare each entry in collection to results
 			for (let j = 0; j < resultCount; j++) {
@@ -1364,7 +1495,7 @@ class Zani {
 
 		// Read through entire collection, search for results
 		for (var i = 1; i <= collectionSize; i++) {
-			var entry = await this.getCollectionEntry(collection, i);
+			var entry = await this.getEntry(collection, i);
 			entry = JSON.parse(entry);
 
 			// If entry has attribute, ensure not empty or undefined
@@ -1477,7 +1608,7 @@ class Zani {
 				`${collection} folder does not exist`,
 				'CollectionCheck',
 				`The collection exists in the meta.json file, but the collection storage folder, and thus, subsequent` +
-				`data files, cannot be located. \n\tError locating collection jsonl at ${path.join(
+					`data files, cannot be located. \n\tError locating collection jsonl at ${path.join(
 						__dirname,
 						`${this.databaseName}\\collections\\${collection}.jsonl`,
 					)}`,
@@ -1498,7 +1629,7 @@ class Zani {
 	}
 
 	/** Returns the file path, including file name and extension, based on collection name and id.
-	 * 
+	 *
 	 * @param {string} collection - The collection name
 	 * @param {number} id - The entry _id
 	 * @returns {string} - The file path to the entry
@@ -1510,12 +1641,12 @@ class Zani {
 	}
 
 	/** Return the folder name of the entry derived from the id.
-	 * 
-	 * @param {number} id - The entry _id 
+	 *
+	 * @param {number} id - The entry _id
 	 * @returns {string}
 	 */
 	getEntryFolder(id) {
-		return String(Math.floor(id/10000)).padStart(2, 0);
+		return String(Math.floor(id / 10000)).padStart(2, 0);
 	}
 
 	/** Update the meta.json object for the active database with the current meta object instance.	 *

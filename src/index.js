@@ -18,7 +18,6 @@ async function main() {
 	//searchTest();
 	//await createTestCollection();
 
-	
 }
 
 async function createTestCollection() {
