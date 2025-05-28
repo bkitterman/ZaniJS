@@ -433,14 +433,19 @@ class Zani {
 	 * @returns The collection array of objects
 	 */
 	getCollection(collection) {
-		//TODO update this to match new schema
 		// Check if system is ready
 		if (!this.checkForCollection(collection)) return;
 
 		// TODO add buffer here later
-		// TODO fix this
+		const collectionSize = this.getCollectionSize(collection);
+		var results = [];
 
-		return contents;
+		for (let i = 0; i < collectionSize; i++) {
+			var entry = this.getEntry(collection, i);
+			if (entry !== null) results.push(entry);
+		}
+
+		return results;
 	}
 
 	/* -------------------------------------------------------------------------- */
@@ -449,9 +454,16 @@ class Zani {
 
 	/** Given a collection name, index the values for the provided attribute name. This index
 	 * will then be used going forwards to increase query speed, but may result in slightly slower insert,
-	 * deletion, and update speeds.
+	 * deletion, and update speeds. Only values that are strings or numbers will be indexed. 
 	 *
-	 * @async
+	 * To define the attribute, it should be flattened using dot notation. This can only index up to depth 2.
+	 *
+	 * @example
+	 * {
+	 *  	foo: {bar: 0}, 	// Depth 2
+	 *  	value: 0		// Depth 1
+	 * }
+	 * Attribute = "value" or "foo.bar" respectively
 	 *
 	 * @param {string} collection - The collection to be indexed.
 	 * @param {string} attribute - The attribute to index.
@@ -477,6 +489,18 @@ class Zani {
 			return;
 		}
 
+		// Check if attribute exceeds permissible indexing depth
+		const unflattenedAttribute = this.unflattenAttribute(attribute);
+		if (unflattenedAttribute.length > 2) {
+			this.logger.error(
+				`Object indexing depth exceeded`,
+				this.databaseName,
+				`The depth for attribute ${attribute} exceeds the limit of depth 2 with depth ` +
+					`${unflattenedAttribute.length}. No index can or will be created.`,
+			);
+			return;
+		}
+
 		// Create Index Files
 		fs.mkdirSync(indexPath);
 
@@ -484,14 +508,30 @@ class Zani {
 		//TODO update when the index files are included in BPlusTree.
 		var indexTree = new BPlusTree(indexPath, 100);
 		var collectionSize = this.getCollectionSize(collection);
-		this.meta.collections[collection].indexed.push(attribute);
+		this.meta.collections[collection].indexed.push(attribute);		
 
 		// Check each entry for the attribute. If it exists, add to the tree.
-		//! Note: If an entry is missing the attribute, it is not included in the index.
 		for (let i = 0; i < collectionSize; i++) {
+			var hasProperty = true;
 			let entry = this.getEntry(collection, i);
-			if (entry !== undefined && entry.hasOwnProperty(attribute)) {
-				indexTree.insert(entry[attribute], entry._id);
+			
+			// Prevent fragmentation from throwing system off
+			if(entry === null)
+				continue;
+			
+			let id = entry._id;
+			
+			for(const key of unflattenedAttribute) {
+				if(entry.hasOwnProperty(key)) {
+					entry = entry[key];
+				}else {
+					hasProperty = false; 
+					break;
+				}
+			}
+
+			if (hasProperty && (typeof entry === 'string' || typeof entry === 'number')) {
+				indexTree.insert(entry, id);
 			}
 		}
 
@@ -543,7 +583,7 @@ class Zani {
 		} else id = this.meta.collections[collection].entries++;
 
 		// Ensure ID is not being defined by user
-		if(entry.hasOwnProperty('_id')) {
+		if (entry.hasOwnProperty('_id')) {
 			this.logger.warn('The attribute _id is reserved by the system, and will be ignored.');
 			delete entry._id;
 		}
@@ -703,16 +743,16 @@ class Zani {
 
 		// Store original values for index removal post-update
 		const originalValues = {};
-		for(const key in updatesToMake) {
-			if(this.meta.collections[collection].indexed.includes(key))  {
+		for (const key in updatesToMake) {
+			if (this.meta.collections[collection].indexed.includes(key)) {
 				Object.defineProperty(originalValues, key, {
 					value: entry[key] || null,
 					writable: false,
-					enumerable: true
-				})
+					enumerable: true,
+				});
 			}
 		}
-		
+
 		// Perform update operations recursively
 		entry = this.updateEntryRecursive(entry, updatesToMake);
 
@@ -720,20 +760,18 @@ class Zani {
 		fs.writeFileSync(this.getEntryPath(collection, entry._id), JSON.stringify(entry));
 
 		// Update index file
-		for(const key in originalValues) {
+		for (const key in originalValues) {
 			const tree = new BPlusTree(`${this.databaseName}\\indexes\\${collection}\\${key}`);
-			if(originalValues[key] !== null) 
-				tree.delete(originalValues[key], entry._id);
-			if(entry.hasOwnProperty(key) && entry[key] !== null)
-				tree.insert(entry[key], entry._id);
+			if (originalValues[key] !== null) tree.delete(originalValues[key], entry._id);
+			if (entry.hasOwnProperty(key) && entry[key] !== null) tree.insert(entry[key], entry._id);
 		}
 
 		this.logger.log(`Updated entry ${entry._id} in collection ${collection}`, this.databaseName);
 	}
 
-	/** Helper method for {@link Zani#updateEntry} that performs that actual object updates through recursion. 
+	/** Helper method for {@link Zani#updateEntry} that performs that actual object updates through recursion.
 	 * It will pass through each value in updatesToMake and update entry accordingly by the following rules:
-	 * 
+	 *
 	 * If these attributes are not present within the object already, they will be added to the entry. if they
 	 * are already present, the attribute will be overwritten with the new updated one. To delete an attribute,
 	 * pass the value for the attribute within the object as 'undefined'. If null is passed, it will be set to null
@@ -751,20 +789,24 @@ class Zani {
 		for (const key in updatesToMake) {
 			if (key === '_id') continue;
 
-			if (typeof updatesToMake[key] === 'object' && updatesToMake[key]!==null && entry.hasOwnProperty(key)) {
-				if(entry[key] !== null && typeof entry[key] === 'object') {
+			if (
+				typeof updatesToMake[key] === 'object' &&
+				updatesToMake[key] !== null &&
+				entry.hasOwnProperty(key)
+			) {
+				if (entry[key] !== null && typeof entry[key] === 'object') {
 					entry[key] = this.updateEntryRecursive(entry[key], updatesToMake[key]);
 				} else {
 					entry[key] = updatesToMake[key];
 				}
-			}else if (entry.hasOwnProperty(key)) {
+			} else if (entry.hasOwnProperty(key)) {
 				if (updatesToMake[key] === undefined) {
 					delete entry[key];
 				} else {
 					entry[key] = updatesToMake[key];
 				}
 			} else {
-				if(updatesToMake[key]===undefined) continue;
+				if (updatesToMake[key] === undefined) continue;
 				Object.defineProperty(entry, key, {
 					value: updatesToMake[key],
 					writable: true,
@@ -787,22 +829,96 @@ class Zani {
 		// Check if system is ready
 		if (!this.checkForCollection(collection)) return;
 
+		var results = [];
+		var queries = { indexed: {}, notIndexed: {} };
+
+		/*
+		TODO Fix query building (Started, never finished beyond basic layouts)
+			- Use dot notation for nested values, this means fixing createIndex to suit this as well
+			as all areas that check for indexed attributes. IE "foo.bar" = foo: {bar: 1}, indexing bar.
+			- Limit depth of nested indexes to 2. Must be done on both ends
+			- Test edge cases of improperly built queries (ie undefined, null, empty object)
+			- Test with arrays
+			- Not for here, but constrain indexing to ensure its not arrays, objects, etc.
+		*/
+
+		// Testing Code (Before breakdown)
+		console.group('------------------- Query Building Test -------------------');
+		console.log('Criteria: ');
+		console.log(criteria);
+
+		// Build 2 query objects, one for the indexed values and one for the non-indexed values
+		if (!collection) {
+			results = this.getCollection(collection);
+		} else {
+			var queryResults = this.buildQueries(collection, criteria, queries);
+			if (Object.keys(queryResults.indexed).length !== 0) {
+				queries.indexed = queryResults.indexed;
+			}
+			if (Object.keys(queryResults.notIndexed).length !== 0) {
+				queries.notIndexed = queryResults.notIndexed;
+			}
+		}
+
+		// Testing Code (results)
+		console.log('\nQuery - Indexed');
+		console.log(queries.indexed);
+		console.log('\nQuery - Not Indexed');
+		console.log(queries.notIndexed);
+		console.groupEnd();
+
 		// For each part of the query, check to see if there are indexed attributes
 		//		If all are indexed, use findFromIndex method
 		//		if some are indexed, use findFromIndex for those with indexes, use findFromAll for non-indexed.
 		// 		If none are indexed, use findFromAll for query.
 
-		//? What to do if attribute is indexed but not included in the indexed files? 
+		//? What to do if attribute is indexed but not included in the indexed files?
 		//* Assume does not exist.
-
-		// Build 2 query objects, one for the indexed values and one for the non-indexed values, pass to their
-		// respective query methods. 
 
 		// Still need to figure out how to do group-by and aggregation.
 
 		// Handle projection, sorting here.
+	}
 
-		
+	buildQueries(collection, criteria, queries) {
+		for (const key in criteria) {
+			if (this.meta.collections[collection].indexed.includes(key)) {
+				Object.defineProperty(queries.indexed, key, {
+					value: criteria[key],
+					writable: false,
+					enumerable: true,
+				});
+			} else {
+				if (typeof criteria[key] === 'object' && criteria[key] !== null) {
+					var results = this.buildQueries(collection, criteria[key], {
+						indexed: {},
+						notIndexed: {},
+					});
+					if (Object.keys(results.indexed).length !== 0) {
+						Object.defineProperty(queries.indexed, key, {
+							value: results.indexed,
+							writable: false,
+							enumerable: true,
+						});
+					}
+					if (Object.keys(results.notIndexed).length !== 0) {
+						Object.defineProperty(queries.notIndexed, key, {
+							value: results.notIndexed,
+							writable: false,
+							enumerable: true,
+						});
+					}
+				} else {
+					Object.defineProperty(queries.notIndexed, key, {
+						value: criteria[key],
+						writable: false,
+						enumerable: true,
+					});
+				}
+			}
+		}
+
+		return queries;
 	}
 
 	/* ----------------------------- Full Scan Query ---------------------------- */
@@ -827,7 +943,7 @@ class Zani {
 		if (!criteria) {
 			results = this.getCollection(collection);
 		} else {
-			results.push(...(this.findRouter(collection, undefined, criteria)));
+			results.push(...this.findRouter(collection, undefined, criteria));
 		}
 
 		// TODO group by clause here
@@ -915,14 +1031,13 @@ class Zani {
 
 		for (const element of searchParameters) {
 			if (element.charAt(0) === '$') {
-				results.push(...(this.queryOperators[element](collection, attribute, criteria[element])),
-				);
+				results.push(...this.queryOperators[element](collection, attribute, criteria[element]));
 			} else if (typeof criteria[element] === 'object' && !Array.isArray(criteria[element])) {
-				results.push(...(this.findAnd(collection, element, criteria[element])));
+				results.push(...this.findAnd(collection, element, criteria[element]));
 			} else {
 				// TODO make this more efficient, right now it passes over everything n times where n = criteria props.
 				// 		Combine all non $ params and have it iterate 1 time over everything and compare each to all
-				results.push(...(this.findEqual(collection, element, criteria[element])));
+				results.push(...this.findEqual(collection, element, criteria[element]));
 			}
 		}
 
@@ -1169,11 +1284,7 @@ class Zani {
 		// Compile results from query, each query is individual row of 2d array
 		for (const element of searchParameters) {
 			if (element.charAt(0) === '$') {
-				results[queryCount] = this.queryOperators[element](
-					collection,
-					attribute,
-					value[element],
-				);
+				results[queryCount] = this.queryOperators[element](collection, attribute, value[element]);
 			} else if (typeof value[element] === 'object' && !Array.isArray(value[element])) {
 				results[queryCount] = this.findAnd(collection, element, value[element]);
 			} else {
@@ -1243,7 +1354,7 @@ class Zani {
 		var results = [];
 
 		// Can just append results all to single array. Then, de-duplicate.
-		results.push(...(this.findRouter(collection, attribute, value)));
+		results.push(...this.findRouter(collection, attribute, value));
 
 		// De-duplicate results
 		results = this.deduplicateResults(results);
@@ -1273,7 +1384,7 @@ class Zani {
 		const collectionSize = this.getCollectionSize(collection);
 
 		// Can just append results all to single array. Then, de-duplicate.
-		results.push(...(this.findRouter(collection, attribute, value)));
+		results.push(...this.findRouter(collection, attribute, value));
 
 		// De-duplicate results
 		results = this.deduplicateResults(results);
@@ -1474,8 +1585,8 @@ class Zani {
 		return true;
 	}
 
-	/** Checks if a collection folder/files exists within the active database. This includes check for 
-	 * collection, the collection variable, and the active database. 
+	/** Checks if a collection folder/files exists within the active database. This includes check for
+	 * collection, the collection variable, and the active database.
 	 *
 	 * Note: if it is outside the scope of meta, it will not report true.
 	 *
@@ -1515,8 +1626,6 @@ class Zani {
 	}
 
 	/** Given a collection name, return the length/number of entries in the collection.
-	 *
-	 * Note: This value is not 0 index. Entry 1 is 1.
 	 *
 	 * @param {string} collection - Name of the collection
 	 * @returns {number} Collection length
@@ -1610,6 +1719,10 @@ class Zani {
 		}
 
 		return false;
+	}
+
+	unflattenAttribute(attribute) {
+		return attribute.split('.').map((element) => element);
 	}
 
 	/* -------------------------------------------------------------------------- */

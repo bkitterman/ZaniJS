@@ -16,23 +16,33 @@ main();
 
 async function main() {
 	//searchTest();
-	//await createTestCollection();
+	//createTestCollection();
 
+	db.createIndex('Testing', 'insertion');
+	// db.find('Testing', {
+	// 	value: 5,
+	// 	cat: 'dog',
+	// 	visual: {$not: {$gte: {value: 5, value2: 3}}},
+	// 	$eq: {value: 15}
+	// });
 }
 
 async function createTestCollection() {
-	db.createCollection('Testing');
+	//db.createCollection('Testing');
 	for(let j = 0; j<40; j++) {
 		for (let i = 0; i < 300; i++) {
-			db.addEntry('Testing', { value: i+j*300 });
+			db.updateEntry('Testing', {
+				_id: i+j*300,
+				insertion: {num: i*2+j*600},
+			});
 		}
 		db.logger.warn('File batch ended, pausing', 'Test Server');
-		await new Promise ((resolve) => setTimeout(resolve, 10));
+		await new Promise ((resolve) => setTimeout(resolve, 100));
 	}
 }
 
-async function searchTest() {
-	var result = await db.find('NULL', {
+function searchTest() {
+	var result = db.find('NULL', {
 		$exists: '_id',
 	});
 
