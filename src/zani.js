@@ -1,10 +1,11 @@
 // Node Imports
 const fs = require('fs');
-const path = require('path');
+const fsPromises = require('fs/promises');
 
 // Custom Imports
 const ZaniLog = require('./zaniLog');
 const BPlusTree = require('./bPlusTree');
+const ZaniSemaphore = require('./zaniSemaphore');
 
 //TODO list in order of precedence
 /*
@@ -127,9 +128,12 @@ class Zani {
 	/** Instance of ZaniLog used for console and system logging. */
 	logger;
 
+	/** Instance of ZaniSemaphore to ensure file overhead is not exceeded */
+	semaphore;
+
 	/** The options object used for settings of this class and its behavior. Can be set with {@link Zani#configureOptions} */
 	options = {
-		bufferSize: 256,
+		fileLimit: 100,
 		treeOrder: 100,
 		crashDetector: true,
 		consoleOptions: {
@@ -145,8 +149,9 @@ class Zani {
 	 * @param {string=} databaseName - The database to be opened or created
 	 * @param {object=} options - The options object
 	 *
-	 * @param {number} [options.bufferSize=256] - Defines how many characters/bytes are to be read from a file at a time. 0 will be interpreted as file size.
+	 * @param {number} [options.fileLimit=100] - Defines how many files can be opened by the program at any given time.
 	 * @param {boolean} [options.crashDetector=true] - Enable crash detecting method to handle unexpected events, and log errors.
+	 * @param {number} [options.treeOrder] - Define the max number of entries in any node of any index tree.
 	 * @param {object} options.consoleOptions - Define the console options to be used by the logging object.
 	 *
 	 * @param {boolean} [options.consoleOptions.consoleLog=true] - Enable console logging
@@ -173,6 +178,8 @@ class Zani {
 			process.on('unhandledRejection', this.rejectionBound);
 		}
 
+		this.semaphore = new ZaniSemaphore(this.options.fileLimit);
+
 		// Set current database
 		if (databaseName) {
 			this.useDatabase(databaseName);
@@ -193,12 +200,13 @@ class Zani {
 	 *
 	 * @param {object} options - The new options to be used by Zani.
 	 *
-	 * @param {number} [options.bufferSize=256] - Defines how many characters/bytes are to be read from a file at a time. 0 will be interpreted as file size.
+	 * @param {number} [options.fileLimit=100] - Defines how many files can be opened by the program at any given time.
 	 * @param {boolean} [options.crashDetector=true] - Enable crash detecting method to handle unexpected events, and log errors.
+	 * @param {number} [options.treeOrder] - Define the max number of entries in any node of any index tree.
 	 * @param {object} options.consoleOptions - Define the console options to be used by the logging object.
 	 */
 	configureOptions(options) {
-		if (options.hasOwnProperty('bufferSize')) this.options.bufferSize = options.bufferSize;
+		if (options.hasOwnProperty('fileLimit')) this.options.fileLimit = options.fileLimit;
 		if (options.hasOwnProperty('crashDetector')) this.options.crashDetector = options.crashDetector;
 		if (options.hasOwnProperty('treeOrder')) this.options.treeOrder = options.treeOrder;
 
@@ -454,7 +462,7 @@ class Zani {
 
 	/** Given a collection name, index the values for the provided attribute name. This index
 	 * will then be used going forwards to increase query speed, but may result in slightly slower insert,
-	 * deletion, and update speeds. Only values that are strings or numbers will be indexed. 
+	 * deletion, and update speeds. Only values that are strings or numbers will be indexed.
 	 *
 	 * To define the attribute, it should be flattened using dot notation. This can only index up to depth 2.
 	 *
@@ -468,7 +476,7 @@ class Zani {
 	 * @param {string} collection - The collection to be indexed.
 	 * @param {string} attribute - The attribute to index.
 	 */
-	createIndex(collection, attribute) {
+	async createIndex(collection, attribute) {
 		// Check if system is ready
 		if (!this.checkForCollection(collection)) return;
 
@@ -508,24 +516,25 @@ class Zani {
 		//TODO update when the index files are included in BPlusTree.
 		var indexTree = new BPlusTree(indexPath, 100);
 		var collectionSize = this.getCollectionSize(collection);
-		this.meta.collections[collection].indexed.push(attribute);		
+		this.meta.collections[collection].indexed.push(attribute);
 
 		// Check each entry for the attribute. If it exists, add to the tree.
 		for (let i = 0; i < collectionSize; i++) {
 			var hasProperty = true;
-			let entry = this.getEntry(collection, i);
-			
+			await this.semaphore.acquire();
+			let entry = this.getEntryAsync(collection, i);
+			this.semaphore.release();
+
 			// Prevent fragmentation from throwing system off
-			if(entry === null)
-				continue;
-			
+			if (entry === null) continue;
+
 			let id = entry._id;
-			
-			for(const key of unflattenedAttribute) {
-				if(entry.hasOwnProperty(key)) {
+
+			for (const key of unflattenedAttribute) {
+				if (entry.hasOwnProperty(key)) {
 					entry = entry[key];
-				}else {
-					hasProperty = false; 
+				} else {
+					hasProperty = false;
 					break;
 				}
 			}
@@ -690,6 +699,29 @@ class Zani {
 		return null;
 	}
 
+	/** Internal variant of {@link Zani#getEntry} use for async purposes. It assumes perfect input
+	 *
+	 * @param {string} collection - The name of the collection
+	 * @param {number} id - The entry id
+	 * @returns {object} Entry object
+	 */
+	async getEntryAsync(collection, id) {
+		// Read file contents
+		const path = this.getEntryPath(collection, id);
+		if (fs.existsSync(path)) {
+			try {
+				const data = await fsPromises.readFile(path, 'utf8');
+				return JSON.parse(data);
+			} catch (err) {
+				console.log(err);
+				return null;
+			}
+		}
+
+		// File does not exist
+		return null;
+	}
+
 	/** Given a collection name, update a desired entry. These updates are made through the object passed, which
 	 * must contain a '_id" value to denote which object to update, as well as attributes for each addition.
 	 *
@@ -823,35 +855,34 @@ class Zani {
 	/* -------------------------------------------------------------------------- */
 
 	//TODO create a single object variant
-	find(collection, criteria, project, sort) {
+	/** Perform a query operation on the collection provided. This option of query is slow, and will search
+	 * each entry in the collection for each condition. This method is best used for indexing.
+	 *
+	 * @param {string} collection - The name of the collection to search
+	 * @param {object=} query - The query/Search condition object
+	 * @param {object=} project - The projection object
+	 * @param {object=} sort - The sort object
+	 * @returns {object[]} The results of the query
+	 */
+	async find(collection, query, project, sort) {
 		this.logger.log('Smart search method. Not built at this time.');
 
 		// Check if system is ready
 		if (!this.checkForCollection(collection)) return;
 
 		var results = [];
-		var queries = { indexed: {}, notIndexed: {} };
-
-		/*
-		TODO Fix query building (Started, never finished beyond basic layouts)
-			- Use dot notation for nested values, this means fixing createIndex to suit this as well
-			as all areas that check for indexed attributes. IE "foo.bar" = foo: {bar: 1}, indexing bar.
-			- Limit depth of nested indexes to 2. Must be done on both ends
-			- Test edge cases of improperly built queries (ie undefined, null, empty object)
-			- Test with arrays
-			- Not for here, but constrain indexing to ensure its not arrays, objects, etc.
-		*/
+		var queries = { indexed: {}, notIndexed: {}, depth: [] };
 
 		// Testing Code (Before breakdown)
 		console.group('------------------- Query Building Test -------------------');
 		console.log('Criteria: ');
-		console.log(criteria);
+		console.log(query);
 
 		// Build 2 query objects, one for the indexed values and one for the non-indexed values
 		if (!collection) {
 			results = this.getCollection(collection);
 		} else {
-			var queryResults = this.buildQueries(collection, criteria, queries);
+			var queryResults = this.buildQueries(collection, query, queries);
 			if (Object.keys(queryResults.indexed).length !== 0) {
 				queries.indexed = queryResults.indexed;
 			}
@@ -867,87 +898,46 @@ class Zani {
 		console.log(queries.notIndexed);
 		console.groupEnd();
 
-		// For each part of the query, check to see if there are indexed attributes
-		//		If all are indexed, use findFromIndex method
-		//		if some are indexed, use findFromIndex for those with indexes, use findFromAll for non-indexed.
-		// 		If none are indexed, use findFromAll for query.
+		/* 
+		Two queries in parallel, replace the query object 'conditions' with the results
+		Do $and, $not, $or here by referencing the two since they share the same structure
+		and attributes if they are unique like that. 
+		
+		Example:
+			Criteria:
+			{ value: { '$lt': 100 }, '$and': { value: 4, not: 3 } }
+
+			Query - Indexed
+			{ value: { '$lt': 100 }, '$and': { value: 4 } }
+
+			Query - Not Indexed
+			{ '$and': { not: 3 } }
+		
+		If I can cycle through query, and use its structure as the outline to rebuild the queries into one and
+		then solve any logic here, then it should be accurate to the desired result. 
+
+		If on the above, key=$and (as defined by criteria), and call it on both objects (after checking its present),
+		i can then do the $and combination, or the $or if it were the key value, without introducing race condition.		
+		*/
 
 		//? What to do if attribute is indexed but not included in the indexed files?
 		//* Assume does not exist.
 
+		// Dispatch queries
+		const [indexedResults, nonIndexedResults] = await Promise.all([
+			this.findFromIndexed(collection, queries.indexed),
+			this.findFromNonIndexed(collection, queries.notIndexed),
+		]);
+
+		// Go through results here.
+		console.group('----------------------- Results -----------------------');
+		console.log(indexedResults);
+		console.log(nonIndexedResults);
+
+		return;
+
 		// Still need to figure out how to do group-by and aggregation.
-
 		// Handle projection, sorting here.
-	}
-
-	buildQueries(collection, criteria, queries) {
-		for (const key in criteria) {
-			if (this.meta.collections[collection].indexed.includes(key)) {
-				Object.defineProperty(queries.indexed, key, {
-					value: criteria[key],
-					writable: false,
-					enumerable: true,
-				});
-			} else {
-				if (typeof criteria[key] === 'object' && criteria[key] !== null) {
-					var results = this.buildQueries(collection, criteria[key], {
-						indexed: {},
-						notIndexed: {},
-					});
-					if (Object.keys(results.indexed).length !== 0) {
-						Object.defineProperty(queries.indexed, key, {
-							value: results.indexed,
-							writable: false,
-							enumerable: true,
-						});
-					}
-					if (Object.keys(results.notIndexed).length !== 0) {
-						Object.defineProperty(queries.notIndexed, key, {
-							value: results.notIndexed,
-							writable: false,
-							enumerable: true,
-						});
-					}
-				} else {
-					Object.defineProperty(queries.notIndexed, key, {
-						value: criteria[key],
-						writable: false,
-						enumerable: true,
-					});
-				}
-			}
-		}
-
-		return queries;
-	}
-
-	/* ----------------------------- Full Scan Query ---------------------------- */
-	/** Perform a query operation on the collection provided. This option of query is slow, and will search
-	 * each entry in the collection for each condition. This method is best used for indexing.
-	 *
-	 * @param {string} collection - The name of the collection to search
-	 * @param {object=} criteria - The query/Search condition object
-	 * @param {object=} project - The projection object
-	 * @param {object=} sort - The sort object
-	 * @returns {object[]} The results of the query
-	 */
-	findFromIndexed(collection, criteria, project, sort) {
-		// Check if system is ready
-		if (!this.checkForCollection(collection)) return;
-
-		this.logger.log(`Starting query of ${collection}`);
-		var results = [];
-		var entryCount = this.getCollectionSize(collection);
-
-		// If no criteria is passed, get all collection
-		if (!criteria) {
-			results = this.getCollection(collection);
-		} else {
-			results.push(...this.findRouter(collection, undefined, criteria));
-		}
-
-		// TODO group by clause here
-		//create 2d array for the groupings
 
 		// If a projection value was passed, align results to match
 		if (project) {
@@ -989,6 +979,310 @@ class Zani {
 		return results;
 	}
 
+	/** Given a query criteria, deconstruct it into two levels based upon indexed attributes. Each level (indexed
+	 * and nonIndexed) will be a query unto itself. This method is recursive, and criteria will traversed through
+	 * at each level. It returns a query object that is then added to the base-level recursion query object, which
+	 * is returned to {@link Zani#find}.
+	 *
+	 * @param {string} collection - The name of the collection
+	 * @param {object} query - The query to deconstruct (recursive)
+	 * @param {object} queries - The query object and results of deconstruction of criteria
+	 * @returns {object} The deconstructed query.
+	 */
+	buildQueries(collection, query, queries) {
+		for (const key in query) {
+			// Flatten key and check if its indexed
+			var flattenedKey = this.flattenAttribute([...queries.depth, key]);
+			if (this.meta.collections[collection].indexed.includes(flattenedKey)) {
+				Object.defineProperty(queries.indexed, key, {
+					value: query[key],
+					writable: false,
+					enumerable: true,
+				});
+			} else {
+				// if attribute value is an object, recursively traverse
+				if (typeof query[key] === 'object' && query[key] !== null && !Array.isArray(query[key])) {
+					if (key.charAt(0) !== '$') queries.depth.push(key);
+					var results = this.buildQueries(collection, query[key], {
+						indexed: {},
+						notIndexed: {},
+						depth: queries.depth,
+					});
+					if (key.charAt(0) !== '$') queries.depth.pop();
+					if (Object.keys(results.indexed).length !== 0) {
+						Object.defineProperty(queries.indexed, key, {
+							value: results.indexed,
+							writable: false,
+							enumerable: true,
+						});
+					}
+					if (Object.keys(results.notIndexed).length !== 0) {
+						Object.defineProperty(queries.notIndexed, key, {
+							value: results.notIndexed,
+							writable: false,
+							enumerable: true,
+						});
+					}
+					// Non indexed items end up here
+				} else {
+					Object.defineProperty(queries.notIndexed, key, {
+						value: query[key],
+						writable: false,
+						enumerable: true,
+					});
+				}
+			}
+		}
+
+		return queries;
+	}
+
+	queryLogicalOperators = {
+		$and: this.findAnd.bind(this),
+		$or: this.findOr.bind(this),
+		$not: this.findNot.bind(this),
+		$nand: this.findNand.bind(this),
+		$nor: this.findNor.bind(this),
+		$xor: this.findXor.bind(this),
+	};
+
+	/* ------------------------- Query (Indexed) Methods ------------------------ */
+
+	queryOperatorsIndexed = {
+		$gt: this.findIndexedGreaterThan.bind(this),
+		$gte: this.findIndexedGreaterThanEqual.bind(this),
+		$lt: this.findIndexedLessThan.bind(this),
+		$lte: this.findIndexedLessThanEqual.bind(this),
+		$eq: this.findIndexedEqual.bind(this),
+		$ne: this.findIndexedNotEqual.bind(this),
+
+		$in: this.findIndexedIn.bind(this),
+		$nin: this.findIndexedNotIn.bind(this),
+		$text: this.findIndexedText.bind(this),
+
+		$exists: this.findIndexedExists.bind(this),
+		$type: this.findIndexedType.bind(this),
+		$count: this.findIndexedCount.bind(this),
+	};
+
+	findFromIndexed(collection, query) {
+		this.logger.log(`Starting indexed query of ${collection}`, this.databaseName);
+		var results = query;
+
+		return results;
+	}
+
+	findIndexedGreaterThan(query, entry, results, depth) {
+		this.logger.log(`Greater than for indexed at ${depth}`);
+
+		return;
+	}
+
+	findIndexedGreaterThanEqual(query, entry, results, depth) {
+		this.logger.log(`Greater than equal for indexed at ${depth}`);
+
+		return;
+	}
+
+	findIndexedLessThan(query, entry, results, depth) {
+		this.logger.log(`Less than for indexed at ${depth}`);
+
+		return;
+	}
+
+	findIndexedLessThanEqual(query, entry, results, depth) {
+		this.logger.log(`Less than equal for indexed at ${depth}`);
+
+		return;
+	}
+
+	findIndexedEqual(query, entry, results, depth) {
+		this.logger.log(`Equal for indexed at ${depth}`);
+
+		return;
+	}
+
+	findIndexedNotEqual(query, entry, results, depth) {
+		this.logger.log(`Not Equal for indexed at ${depth}`);
+
+		return;
+	}
+
+	findIndexedIn(query, entry, results, depth) {
+		this.logger.log(`Find in for indexed at ${depth}`);
+
+		return;
+	}
+
+	findIndexedNotIn(query, entry, results, depth) {
+		this.logger.log(`Find not in for indexed at ${depth}`);
+
+		return;
+	}
+
+	findIndexedText(query, entry, results, depth) {
+		this.logger.log(`Find Text for indexed at ${depth}`);
+
+		return;
+	}
+
+	findIndexedExists(query, entry, results, depth) {
+		this.logger.log(`Exists for indexed at ${depth}`);
+
+		return;
+	}
+
+	findIndexedType(query, entry, results, depth) {
+		this.logger.log(`Find type for indexed at ${depth}`);
+
+		return;
+	}
+
+	findIndexedCount(query, entry, results, depth) {
+		this.logger.log(`Count for indexed at ${depth}`);
+
+		return;
+	}
+
+	/* ---------------------- Query (Non-Indexed) Methods) ---------------------- */
+
+	queryOperatorsNonIndexed = {
+		$gt: this.findNonIndexedGreaterThan.bind(this),
+		$gte: this.findNonIndexedGreaterThanEqual.bind(this),
+		$lt: this.findNonIndexedLessThan.bind(this),
+		$lte: this.findNonIndexedLessThanEqual.bind(this),
+		$eq: this.findNonIndexedEqual.bind(this),
+		$ne: this.findNonIndexedNotEqual.bind(this),
+
+		$in: this.findNonIndexedIn.bind(this),
+		$nin: this.findNonIndexedNotIn.bind(this),
+		$text: this.findNonIndexedText.bind(this),
+
+		$exists: this.findNonIndexedExists.bind(this),
+		$type: this.findNonIndexedType.bind(this),
+		$count: this.findNonIndexedCount.bind(this),
+	};
+
+	async findFromNonIndexed(collection, query) {
+		this.logger.log(`Starting non-indexed query of ${collection}`, this.databaseName);
+		var results = structuredClone(query);
+
+		// Cycle through each entry, and compare to the query
+		var entryCount = this.getCollectionSize(collection);
+
+		for (let i = 0; i < entryCount; i++) {
+			await this.semaphore.acquire();
+			const entry = await this.getEntryAsync(collection, i);
+			this.semaphore.release();
+
+			if (entry === null) continue;
+			
+			this.findFromNonIndexedRouter(collection, query, entry, results);
+		}
+
+		return results;
+	}
+
+	findFromNonIndexedRouter(collection, query, entry, results, depth = []) {
+		for (const key in entry) {
+			if (key === '_id') continue;
+			depth.push(key);
+
+			if (typeof entry[key] === 'object' && Array.isArray(entry[key] && entry[key] !== null)) {
+				this.findFromNonIndexedRouter(collection, query, entry, results, depth);
+			}
+
+			// if non-logical operator
+			if (key.charAt(0) === '$' && !this.queryLogicalOperators.hasOwnProperty(key)) {
+				console.log(results);
+				// Go to method, resolve
+				//! potential, need to figure out how to traverse results to desired path
+				this.queryOperatorsNonIndexed[key](query[key], entry[key], results, depth);
+			} else if (entry[key] !== null && entry[key] !== undefined) {
+				this.findNonIndexedEqual(query[key], entry[key], results, depth);
+			}
+
+			depth.pop(key);
+		}
+	}
+
+	findNonIndexedGreaterThan(query, entry, results, depth) {
+		this.logger.log(`Greater than for non-indexed at ${depth}`);
+
+		return;
+	}
+
+	findNonIndexedGreaterThanEqual(query, entry, results, depth) {
+		this.logger.log(`Greater than equal for non-indexed at ${depth}`);
+
+		return;
+	}
+
+	findNonIndexedLessThan(query, entry, results, depth) {
+		this.logger.log(`Less than for non-indexed at ${depth}`);
+
+		return;
+	}
+
+	findNonIndexedLessThanEqual(query, entry, results, depth) {
+		this.logger.log(`Less than equal for non-indexed at ${depth}`);
+
+		return;
+	}
+
+	findNonIndexedEqual(query, entry, results, depth) {
+		this.logger.log(`Equal for non-indexed at ${depth}, Q:${query} - E:${entry}`);
+
+		if (query === entry) {
+			this.addValueToResult(results, depth, entry);
+			return true;
+		}
+		return false;
+	}
+
+	findNonIndexedNotEqual(query, entry, results, depth) {
+		this.logger.log(`Not Equal for non-indexed at ${depth}`);
+
+		return;
+	}
+
+	findNonIndexedIn(query, entry, results, depth) {
+		this.logger.log(`Find in for non-indexed at ${depth}`);
+
+		return;
+	}
+
+	findNonIndexedNotIn(query, entry, results, depth) {
+		this.logger.log(`Find not in for non-indexed at ${depth}`);
+
+		return;
+	}
+
+	findNonIndexedText(query, entry, results, depth) {
+		this.logger.log(`Find Text for non-indexed at ${depth}`);
+
+		return;
+	}
+
+	findNonIndexedExists(query, entry, results, depth) {
+		this.logger.log(`Exists for non-indexed at ${depth}`);
+
+		return;
+	}
+
+	findNonIndexedType(query, entry, results, depth) {
+		this.logger.log(`Find type for non-indexed at ${depth}`);
+
+		return;
+	}
+
+	findNonIndexedCount(query, entry, results, depth) {
+		this.logger.log(`Count for non-indexed at ${depth}`);
+
+		return;
+	}
+
+	/* ------------------------------- deprecated ------------------------------- */
 	queryOperators = {
 		$gt: this.findGreaterThan.bind(this),
 		$gte: this.findGreaterThanEqual.bind(this),
@@ -996,13 +1290,6 @@ class Zani {
 		$lte: this.findLessThanEqual.bind(this),
 		$eq: this.findEqual.bind(this),
 		$ne: this.findNotEqual.bind(this),
-
-		$and: this.findAnd.bind(this),
-		$or: this.findOr.bind(this),
-		$not: this.findNot.bind(this),
-		$nand: this.findNand.bind(this),
-		$nor: this.findNor.bind(this),
-		$xor: this.findXor.bind(this),
 
 		$in: this.findIn.bind(this),
 		$nin: this.findNotIn.bind(this),
@@ -1721,8 +2008,94 @@ class Zani {
 		return false;
 	}
 
+	/** Flatten an array into dot notation in order of elements
+	 *
+	 * @param {string[]} attribute - The unflattened attribute
+	 * @return {string} The flattened attribute
+	 */
+	flattenAttribute(attribute) {
+		return attribute.join('.');
+	}
+
+	/** Unflattens an array from dot notation in order of elements to an array
+	 *
+	 * @param {string[]} attribute - The flattened attribute
+	 * @return {string} The unflattened attribute
+	 */
 	unflattenAttribute(attribute) {
 		return attribute.split('.').map((element) => element);
+	}
+
+	/** Set a value of a attribute in an object without recursively reducing the object.
+	 *
+	 *  This only works with non-array attributes, but can set arrays as an attribute value.
+	 *
+	 * @param {object} obj - The object to traverse
+	 * @param {string} attribute - The unflattened attribute to set
+	 * @param {any} value - The value to set
+	 */
+	setObjectAttribute(obj, attribute, value) {
+		let curr = obj;
+		for (let i = 0; i < attribute.length - 1; i++) {
+			if (!(attribute[i] in curr)) curr[attribute[i]] = {};
+			curr = curr[attribute[i]];
+		}
+		curr[attribute[attribute.length - 1]] = value;
+	}
+
+	/** Push a value to a attribute array in an object without recursively reducing the object.
+	 *
+	 * This only works with attributes that are already arrays.
+	 *
+	 * @param {object} obj - The object to traverse
+	 * @param {string} attribute - The unflattened attribute to set
+	 * @param {any} value - The value to set
+	 */
+	pushToAttributeArray(obj, attribute, value) {
+		let curr = obj;
+		for (let i = 0; i < attribute.length - 1; i++) {
+			if (!(attribute[i] in curr)) curr[attribute[i]] = {};
+			curr = curr[attribute[i]];
+		}
+		curr[attribute[attribute.length - 1]] = value;
+	}
+
+	/** Adds a entry to a object attribute of unknown type.
+	 *
+	 * @param {object} obj - The object housing the attribute
+	 * @param {string} attribute - The unflattened path of the attribute
+	 * @param {any} value - The value to add
+	 */
+	addValueToResult(obj, attribute, value) {
+		if (this.getAttributeDataType(obj, attribute) === 'array') {
+			this.pushToAttributeArray(obj, attribute, value);
+		} else {
+			this.setObjectAttribute(obj, attribute, [value]);
+		}
+	}
+
+	/** Returns the data type of a object attribute. Can be:
+	 * - 'undefined'
+	 * - 'null'
+	 * - 'array'
+	 * - any result of typeof keyword
+	 *
+	 * @param {object} obj - The object holding the desired attribute
+	 * @param {string} attribute - The unflattened path of the attribute
+	 * @returns The object type in string form
+	 */
+	getAttributeDataType(obj, attribute) {
+		let curr = obj;
+		for (let i = 0; i < attribute.length - 1; i++) {
+			if (!(attribute[i] in curr)) curr[attribute[i]] = {};
+			curr = curr[attribute[i]];
+		}
+		let value = curr[attribute[attribute.length - 1]];
+
+		if (!value) return 'undefined';
+		if (Array.isArray(value)) return 'array';
+		if (value === null) return 'null';
+		return typeof value;
 	}
 
 	/* -------------------------------------------------------------------------- */
