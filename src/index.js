@@ -25,9 +25,8 @@ async function main() {
 	- Test object nesting with more defined data. works as is now in non-indexed files
 	*/
 	await db.find('PlaceHolder', {
-		// Next test
+		value: {$gt: 3}
 	});
-
 	//db.findNonIndexedText('%test%test2___test3%', '', '', '');
 }
 

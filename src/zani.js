@@ -1042,6 +1042,11 @@ class Zani {
 		return queries;
 	}
 
+	/** Replace all attributes in an object value field with an empty array. This method is designed to
+	 * prepare the results object in a query for the addition of entries that meet their criteria
+	 *
+	 * @param {object} results - The object to update.
+	 */
 	prepareResultsObject(results) {
 		for (const key in results) {
 			if (typeof results[key] !== 'object' || Array.isArray(results[key])) {
@@ -1052,34 +1057,70 @@ class Zani {
 		}
 	}
 
-	queryLogicalOperators = {
-		$and: this.findAnd.bind(this),
-		$or: this.findOr.bind(this),
-		$not: this.findNot.bind(this),
-		$nand: this.findNand.bind(this),
-		$nor: this.findNor.bind(this),
-		$xor: this.findXor.bind(this),
-		$count: this.findCount.bind(this),
+	/** List of query operations and their respective method, split between indexed, non-indexed, and logical
+	 * operations variations. When called, it will route to the respective method.
+	 */
+	queryOperators = {
+		$gt: {
+			indexed: this.findIndexedGreaterThan.bind(this),
+			nonIndexed: this.findNonIndexedGreaterThan.bind(this),
+		},
+		$gte: {
+			indexed: this.findIndexedGreaterThanEqual.bind(this),
+			nonIndexed: this.findNonIndexedGreaterThanEqual.bind(this),
+		},
+		$lt: {
+			indexed: this.findIndexedGreaterThan.bind(this),
+			nonIndexed: this.findNonIndexedGreaterThan.bind(this),
+		},
+		$lte: {
+			indexed: this.findIndexedLessThanEqual.bind(this),
+			nonIndexed: this.findNonIndexedLessThanEqual.bind(this),
+		},
+		$eq: {
+			indexed: this.findIndexedEqual.bind(this),
+			nonIndexed: this.findNonIndexedEqual.bind(this),
+		},
+		$ne: {
+			indexed: this.findIndexedNotEqual.bind(this),
+			nonIndexed: this.findNonIndexedNotEqual.bind(this),
+		},
+		// TODO add range later for more memory efficient methods?
+
+		$in: {
+			indexed: this.findIndexedIn.bind(this),
+			nonIndexed: this.findNonIndexedIn.bind(this),
+		},
+		$nin: {
+			indexed: this.findIndexedNotIn.bind(this),
+			nonIndexed: this.findNonIndexedNotIn.bind(this),
+		},
+		$text: {
+			indexed: this.findIndexedText.bind(this),
+			nonIndexed: this.findNonIndexedText.bind(this),
+		},
+
+		$exists: {
+			indexed: this.findIndexedExists.bind(this),
+			nonIndexed: this.findNonIndexedExists.bind(this),
+		},
+		$type: {
+			indexed: this.findIndexedType.bind(this),
+			nonIndexed: this.findNonIndexedType.bind(this),
+		},
+
+		logical: {
+			$and: this.findAnd.bind(this),
+			$or: this.findOr.bind(this),
+			$not: this.findNot.bind(this),
+			$nand: this.findNand.bind(this),
+			$nor: this.findNor.bind(this),
+			$xor: this.findXor.bind(this),
+			$count: this.findCount.bind(this),
+		},
 	};
 
 	/* ------------------------- Query (Indexed) Methods ------------------------ */
-
-	queryOperatorsIndexed = {
-		$gt: this.findIndexedGreaterThan.bind(this),
-		$gte: this.findIndexedGreaterThanEqual.bind(this),
-		$lt: this.findIndexedLessThan.bind(this),
-		$lte: this.findIndexedLessThanEqual.bind(this),
-		$eq: this.findIndexedEqual.bind(this),
-		$ne: this.findIndexedNotEqual.bind(this),
-
-		$in: this.findIndexedIn.bind(this),
-		$nin: this.findIndexedNotIn.bind(this),
-		$text: this.findIndexedText.bind(this),
-
-		$exists: this.findIndexedExists.bind(this),
-		$type: this.findIndexedType.bind(this),
-		$count: this.findIndexedCount.bind(this),
-	};
 
 	findFromIndexed(collection, query) {
 		this.logger.log(`Starting indexed query of ${collection}`, this.databaseName);
@@ -1162,23 +1203,17 @@ class Zani {
 
 	/* ---------------------- Query (Non-Indexed) Methods) ---------------------- */
 
-	queryOperatorsNonIndexed = {
-		$gt: this.findNonIndexedGreaterThan.bind(this),
-		$gte: this.findNonIndexedGreaterThanEqual.bind(this),
-		$lt: this.findNonIndexedLessThan.bind(this),
-		$lte: this.findNonIndexedLessThanEqual.bind(this),
-		$eq: this.findNonIndexedEqual.bind(this),
-		$ne: this.findNonIndexedNotEqual.bind(this),
-		// TODO add range later for more memory efficient methods?
-
-		$in: this.findNonIndexedIn.bind(this),
-		$nin: this.findNonIndexedNotIn.bind(this),
-		$text: this.findNonIndexedText.bind(this),
-
-		$exists: this.findNonIndexedExists.bind(this),
-		$type: this.findNonIndexedType.bind(this),
-	};
-
+	/** Search a collection, entry by entry, and apply a query criteria to each. All entries that match
+	 * will be added to their respective results object value, which contains attributes tracking where each
+	 * entry passed for later processing within {@link Zani#find}.
+	 *
+	 * This method is for non-indexed queries, which follows a for each entry, apply the entire criteria. For indexed
+	 * attributes, use {@link Zani#findIndexed}.
+	 *
+	 * @param {string} collection - The name of the collection to search
+	 * @param {object} query - The criteria to apply to each entry
+	 * @returns - The results object.
+	 */
 	async findFromNonIndexed(collection, query) {
 		this.logger.log(`Starting non-indexed query of ${collection}`, this.databaseName);
 		var results = structuredClone(query);
@@ -1200,21 +1235,36 @@ class Zani {
 		return results;
 	}
 
+	/** Given a criteria, route all queries to proper method and construct the results object. This method is
+	 * called from and will return to {@link Zani#findNonIndexed}. This method is recursive and will be called
+	 * for every $queryOperator or nested object within the entry. This method also runs once for every entry,
+	 * and applies the criteria to each attribute.
+	 *
+	 * @see {@link Zani#find}
+	 * @see {@link Zani#findNonIndexed}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 * @param {object} depth - The variable tracking the current object depth, and attribute path (unflattened)
+	 *
+	 * @returns {object[]}
+	 */
 	findFromNonIndexedRouter(query, entry, results, depth = { entry: [], query: [] }) {
 		for (const key in query) {
 			if (key === '_id') continue;
 			if (key.charAt(0) !== '$') {
-				if (!this.objectHasAttribute(entry, [... depth.entry, key])) continue;
+				if (!this.objectHasAttribute(entry, [...depth.entry, key])) continue;
 				depth.entry.push(key);
 			}
 			depth.query.push(key);
 
 			let attributeValue = this.getAttributeDataType(query[key]);
-			
+
 			if (attributeValue === 'object') {
 				this.findFromNonIndexedRouter(query[key], entry, results, depth);
-			} else if (key.charAt(0) === '$' && !this.queryLogicalOperators.hasOwnProperty(key)) {
-				this.queryOperatorsNonIndexed[key](query[key], entry, results, depth);
+			} else if (key.charAt(0) === '$' && !this.queryOperators.logical.hasOwnProperty(key)) {
+				this.queryOperators[key].nonIndexed(query[key], entry, results, depth);
 			} else if (attributeValue !== null && attributeValue !== undefined) {
 				this.findNonIndexedEqual(query[key], entry, results, depth);
 			}
@@ -1224,18 +1274,53 @@ class Zani {
 		}
 	}
 
+	/** Greater than ($gt) search for non-indexed attributes/collections.
+	 *
+	 * Search the entry provided for values greater than the query's value. This method should only be called
+	 * from the non-indexed router method {@link Zani#findNonIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$gt: 3}}
+	 * results: any entry with attribute value greater than, but not including, 3.
+	 *
+	 * @see {@link Zani#findNonIndexed}
+	 * @see {@link Zani#findNonIndexedRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
 	findNonIndexedGreaterThan(query, entry, results, depth) {
 		this.logger.log(
 			`Greater than for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`,
 		);
 
-		console.log(depth);
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query < value) {
 			this.pushToAttributeArray(results, depth.query, entry);
 		}
 	}
 
+	/** Greater than or equal to ($gte) search for non-indexed attributes/collections.
+	 *
+	 * Search the entry provided for values greater than or equal to the query's value. This method
+	 * should only be called from the non-indexed router method {@link Zani#findNonIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$gte: 3}}
+	 * results: any entry with attribute value greater than or equal to 3.
+	 *
+	 * @see {@link Zani#findNonIndexed}
+	 * @see {@link Zani#findNonIndexedRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
 	findNonIndexedGreaterThanEqual(query, entry, results, depth) {
 		this.logger.log(
 			`Greater than equal to for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`,
@@ -1247,6 +1332,24 @@ class Zani {
 		}
 	}
 
+	/** Less than ($lt) search for non-indexed attributes/collections.
+	 *
+	 * Search the entry provided for values less than the query's value. This method should only be called
+	 * from the non-indexed router method {@link Zani#findNonIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$lt: 3}}
+	 * results: any entry with attribute value less than, but not including, 3.
+	 *
+	 * @see {@link Zani#findNonIndexed}
+	 * @see {@link Zani#findNonIndexedRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
 	findNonIndexedLessThan(query, entry, results, depth) {
 		this.logger.log(`Less than for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
@@ -1256,6 +1359,24 @@ class Zani {
 		}
 	}
 
+	/** Less than or equal to ($lte) search for non-indexed attributes/collections.
+	 *
+	 * Search the entry provided for values less than or equal to the query's value. This method
+	 * should only be called from the non-indexed router method {@link Zani#findNonIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$lte: 3}}
+	 * results: any entry with attribute value less than or equal to 3.
+	 *
+	 * @see {@link Zani#findNonIndexed}
+	 * @see {@link Zani#findNonIndexedRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
 	findNonIndexedLessThanEqual(query, entry, results, depth) {
 		this.logger.log(
 			`Less than equal to for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`,
@@ -1267,6 +1388,24 @@ class Zani {
 		}
 	}
 
+	/** Equal to ($eq) search for non-indexed attributes/collections.
+	 *
+	 * Search the entry provided for values equal to the query's value. This method
+	 * should only be called from the non-indexed router method {@link Zani#findNonIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$eq: 3}} OR {value: 3}
+	 * results: any entry with attribute value equal to 3.
+	 *
+	 * @see {@link Zani#findNonIndexed}
+	 * @see {@link Zani#findNonIndexedRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
 	findNonIndexedEqual(query, entry, results, depth) {
 		this.logger.log(`Equal for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
@@ -1276,6 +1415,24 @@ class Zani {
 		}
 	}
 
+	/** Not Equal to ($ne) search for non-indexed attributes/collections.
+	 *
+	 * Search the entry provided for values not equal to the query's value. This method
+	 * should only be called from the non-indexed router method {@link Zani#findNonIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$ne: 3}}
+	 * results: any entry with attribute value not equal to 3.
+	 *
+	 * @see {@link Zani#findNonIndexed}
+	 * @see {@link Zani#findNonIndexedRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
 	findNonIndexedNotEqual(query, entry, results, depth) {
 		this.logger.log(`Not Equal for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
@@ -1285,6 +1442,24 @@ class Zani {
 		}
 	}
 
+	/** In ($in) search for non-indexed attributes/collections.
+	 *
+	 * Search the entry provided for values contained within query's array of values. This method
+	 * should only be called from the non-indexed router method {@link Zani#findNonIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$in: [2, 3, 5]}}
+	 * results: any entry with attribute value 2, 3, or 5.
+	 *
+	 * @see {@link Zani#findNonIndexed}
+	 * @see {@link Zani#findNonIndexedRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
 	findNonIndexedIn(query, entry, results, depth) {
 		this.logger.log(`Find in for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
@@ -1294,6 +1469,24 @@ class Zani {
 		}
 	}
 
+	/** Not In ($nin) search for non-indexed attributes/collections.
+	 *
+	 * Search the entry provided for values not contained within query's array of values. This method
+	 * should only be called from the non-indexed router method {@link Zani#findNonIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$nin: [2, 3, 5]}}
+	 * results: any entry with attribute value not equal to 2, 3, or 5.
+	 *
+	 * @see {@link Zani#findNonIndexed}
+	 * @see {@link Zani#findNonIndexedRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
 	findNonIndexedNotIn(query, entry, results, depth) {
 		this.logger.log(
 			`Find not in for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`,
@@ -1305,6 +1498,25 @@ class Zani {
 		}
 	}
 
+	/** Text ($text) search for non-indexed attributes/collections.
+	 *
+	 * Search the entry provided for values equal to, or matching the criteria of, the queries value. This method
+	 * should only be called from the non-indexed router method {@link Zani#findNonIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$text: "%example_query%"}}
+	 * results: any entry with attribute value containing the phrase "example" and "query" with a single character
+	 * separation between them.
+	 *
+	 * @see {@link Zani#findNonIndexed}
+	 * @see {@link Zani#findNonIndexedRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
 	//? This appears to work perfectly, but it cannot consider spaces for some reason
 	findNonIndexedText(query, entry, results, depth) {
 		this.logger.log(`Find Text for non-indexed at ${depth.entry}, Q:${query} - E:${entry}`);
@@ -1393,7 +1605,7 @@ class Zani {
 				if (query.length > 1) search.push(query);
 				break;
 			}
-			
+
 			let nextPercent = query.indexOf('%', 1);
 			let nextUnderscore = query.indexOf('_', 1);
 
@@ -1426,7 +1638,7 @@ class Zani {
 			break;
 		}
 
-		this.logger.debug("Search object built", this.databaseName);
+		this.logger.debug('Search object built', this.databaseName);
 		console.log(search);
 
 		// Search
@@ -1437,7 +1649,7 @@ class Zani {
 				indexedSearch = true;
 				continue;
 			}
-			
+
 			if (indexedSearch) {
 				if (value.indexOf(element) === 0) {
 					value = value.substring(element.length, value.length);
@@ -1461,6 +1673,24 @@ class Zani {
 		return;
 	}
 
+	/** Exists ($exists) search for non-indexed attributes/collections.
+	 *
+	 * Search the entry provided for an attributes presence. This method should only be called from
+	 * the non-indexed router method {@link Zani#findNonIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$exists: true}
+	 * results: any entry with attribute value
+	 *
+	 * @see {@link Zani#findNonIndexed}
+	 * @see {@link Zani#findNonIndexedRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
 	findNonIndexedExists(query, entry, results, depth) {
 		this.logger.log(`Exists for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
@@ -1475,6 +1705,24 @@ class Zani {
 			}
 	}
 
+	/** Type ($type) search for non-indexed attributes/collections.
+	 *
+	 * Search the entry provided for values that share the same datatype as query. This method
+	 * should only be called from the non-indexed router method {@link Zani#findNonIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$type: 'number'}
+	 * results: any entry with attribute value that is of type number, as defined by JS typeof keyword.
+	 *
+	 * @see {@link Zani#findNonIndexed}
+	 * @see {@link Zani#findNonIndexedRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
 	findNonIndexedType(query, entry, results, depth) {
 		this.logger.log(`Find type for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
@@ -1484,22 +1732,6 @@ class Zani {
 	}
 
 	/* ------------------------------- deprecated ------------------------------- */
-	queryOperators = {
-		$gt: this.findGreaterThan.bind(this),
-		$gte: this.findGreaterThanEqual.bind(this),
-		$lt: this.findLessThan.bind(this),
-		$lte: this.findLessThanEqual.bind(this),
-		$eq: this.findEqual.bind(this),
-		$ne: this.findNotEqual.bind(this),
-
-		$in: this.findIn.bind(this),
-		$nin: this.findNotIn.bind(this),
-		$text: this.findText.bind(this),
-
-		$exists: this.findExists.bind(this),
-		$type: this.findType.bind(this),
-		$count: this.findCount.bind(this),
-	};
 
 	/** Given a criteria, route all queries to proper method and construct the results array. This method is called from
 	 * and will return to {@link Zani#find}. This method is recursive and will be called for every $queryOperator.
@@ -2314,8 +2546,7 @@ class Zani {
 	 */
 	getAttributeDataType(obj, attribute) {
 		let value = obj;
-		if(attribute)
-			value = this.getObjectAttribute(obj, attribute);
+		if (attribute) value = this.getObjectAttribute(obj, attribute);
 
 		if (value === undefined) return 'undefined';
 		if (Array.isArray(value)) return 'array';
