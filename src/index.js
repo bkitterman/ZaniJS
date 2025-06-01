@@ -16,10 +16,19 @@ async function main() {
 	//searchTest();
 	// await createTestCollection();
 
-	await db.find('Testing', {
-		value: 3,
-		insertion: {num: 8}
+	//! Testing note; What hapopens if a query requests an attribute not present?
+	/* 
+	! Things to test
+	- FIRST: Test all non-indexed methods
+	- Uppercase/lowercase on things like $gt -> $Gt/gT
+	- Query check, making sure things are used properly rather than just 'where they fit'
+	- Test object nesting with more defined data. works as is now in non-indexed files
+	*/
+	await db.find('PlaceHolder', {
+		// Next test
 	});
+
+	//db.findNonIndexedText('%test%test2___test3%', '', '', '');
 }
 
 async function createTestCollection() {

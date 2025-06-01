@@ -1,12 +1,6 @@
 // Node Imports
 const fs = require('fs');
 
-// TODO LIST
-/*
-	- Add a debug method (ZaniLog.debug(string message, string source="Zani/DEBUG")) where color = blue 
-*/
-
-
 /**
  * The in-built logging system for ZaniJS for both console and file logging.
  *

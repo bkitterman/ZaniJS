@@ -29,6 +29,8 @@ const ZaniSemaphore = require('./zaniSemaphore');
 			- Consider adding foreign keys later?
 			- If it is within the meta.collections.attributes array, it is a required field. Constraints must always
 			  be upheld, no exceptions.
+	- Add event emitters to allow for user-definition of activities, publish-subscribe system. 
+		- Consider this for logging
 	- Change query system to be entry based rather than condition based (What it is now)
 		- This comes first. It may change next steps (IE with nested objects)
 	- Fix nested objects problem (See below).
@@ -713,7 +715,7 @@ class Zani {
 				const data = await fsPromises.readFile(path, 'utf8');
 				return JSON.parse(data);
 			} catch (err) {
-				console.log(err);
+				this.logger.error(err);
 				return null;
 			}
 		}
@@ -931,6 +933,7 @@ class Zani {
 
 		// Go through results here.
 		console.group('----------------------- Results -----------------------');
+		console.log(query);
 		console.log(indexedResults);
 		console.log(nonIndexedResults);
 
@@ -974,6 +977,8 @@ class Zani {
 			const sortParam = Object.getOwnPropertyNames(sort);
 			// Rearrange results to match
 		}
+
+		// if smart indexing is enabled, check through here.
 
 		this.logger.log('Query Complete', this.databaseName);
 		return results;
@@ -1037,6 +1042,16 @@ class Zani {
 		return queries;
 	}
 
+	prepareResultsObject(results) {
+		for (const key in results) {
+			if (typeof results[key] !== 'object' || Array.isArray(results[key])) {
+				results[key] = [];
+			} else if (results[key] !== null || results[key] !== undefined) {
+				this.prepareResultsObject(results[key]);
+			}
+		}
+	}
+
 	queryLogicalOperators = {
 		$and: this.findAnd.bind(this),
 		$or: this.findOr.bind(this),
@@ -1044,6 +1059,7 @@ class Zani {
 		$nand: this.findNand.bind(this),
 		$nor: this.findNor.bind(this),
 		$xor: this.findXor.bind(this),
+		$count: this.findCount.bind(this),
 	};
 
 	/* ------------------------- Query (Indexed) Methods ------------------------ */
@@ -1153,6 +1169,7 @@ class Zani {
 		$lte: this.findNonIndexedLessThanEqual.bind(this),
 		$eq: this.findNonIndexedEqual.bind(this),
 		$ne: this.findNonIndexedNotEqual.bind(this),
+		// TODO add range later for more memory efficient methods?
 
 		$in: this.findNonIndexedIn.bind(this),
 		$nin: this.findNonIndexedNotIn.bind(this),
@@ -1160,12 +1177,12 @@ class Zani {
 
 		$exists: this.findNonIndexedExists.bind(this),
 		$type: this.findNonIndexedType.bind(this),
-		$count: this.findNonIndexedCount.bind(this),
 	};
 
 	async findFromNonIndexed(collection, query) {
 		this.logger.log(`Starting non-indexed query of ${collection}`, this.databaseName);
 		var results = structuredClone(query);
+		this.prepareResultsObject(results);
 
 		// Cycle through each entry, and compare to the query
 		var entryCount = this.getCollectionSize(collection);
@@ -1176,110 +1193,294 @@ class Zani {
 			this.semaphore.release();
 
 			if (entry === null) continue;
-			
-			this.findFromNonIndexedRouter(collection, query, entry, results);
+
+			this.findFromNonIndexedRouter(query, entry, results);
 		}
 
 		return results;
 	}
 
-	findFromNonIndexedRouter(collection, query, entry, results, depth = []) {
-		for (const key in entry) {
+	findFromNonIndexedRouter(query, entry, results, depth = { entry: [], query: [] }) {
+		for (const key in query) {
 			if (key === '_id') continue;
-			depth.push(key);
+			if (key.charAt(0) !== '$') {
+				if (!this.objectHasAttribute(entry, [... depth.entry, key])) continue;
+				depth.entry.push(key);
+			}
+			depth.query.push(key);
 
-			if (typeof entry[key] === 'object' && Array.isArray(entry[key] && entry[key] !== null)) {
-				this.findFromNonIndexedRouter(collection, query, entry, results, depth);
+			let attributeValue = this.getAttributeDataType(query[key]);
+			
+			if (attributeValue === 'object') {
+				this.findFromNonIndexedRouter(query[key], entry, results, depth);
+			} else if (key.charAt(0) === '$' && !this.queryLogicalOperators.hasOwnProperty(key)) {
+				this.queryOperatorsNonIndexed[key](query[key], entry, results, depth);
+			} else if (attributeValue !== null && attributeValue !== undefined) {
+				this.findNonIndexedEqual(query[key], entry, results, depth);
 			}
 
-			// if non-logical operator
-			if (key.charAt(0) === '$' && !this.queryLogicalOperators.hasOwnProperty(key)) {
-				console.log(results);
-				// Go to method, resolve
-				//! potential, need to figure out how to traverse results to desired path
-				this.queryOperatorsNonIndexed[key](query[key], entry[key], results, depth);
-			} else if (entry[key] !== null && entry[key] !== undefined) {
-				this.findNonIndexedEqual(query[key], entry[key], results, depth);
-			}
-
-			depth.pop(key);
+			if (!key.charAt(0) === '$') depth.entry.pop();
+			depth.query.pop();
 		}
 	}
 
 	findNonIndexedGreaterThan(query, entry, results, depth) {
-		this.logger.log(`Greater than for non-indexed at ${depth}`);
+		this.logger.log(
+			`Greater than for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`,
+		);
 
-		return;
+		console.log(depth);
+		const value = this.getObjectAttribute(entry, depth.entry);
+		if (query < value) {
+			this.pushToAttributeArray(results, depth.query, entry);
+		}
 	}
 
 	findNonIndexedGreaterThanEqual(query, entry, results, depth) {
-		this.logger.log(`Greater than equal for non-indexed at ${depth}`);
+		this.logger.log(
+			`Greater than equal to for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`,
+		);
 
-		return;
+		const value = this.getObjectAttribute(entry, depth.entry);
+		if (query <= value) {
+			this.pushToAttributeArray(results, depth.query, entry);
+		}
 	}
 
 	findNonIndexedLessThan(query, entry, results, depth) {
-		this.logger.log(`Less than for non-indexed at ${depth}`);
+		this.logger.log(`Less than for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
-		return;
+		const value = this.getObjectAttribute(entry, depth.entry);
+		if (query > value) {
+			this.pushToAttributeArray(results, depth.query, entry);
+		}
 	}
 
 	findNonIndexedLessThanEqual(query, entry, results, depth) {
-		this.logger.log(`Less than equal for non-indexed at ${depth}`);
+		this.logger.log(
+			`Less than equal to for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`,
+		);
 
-		return;
+		const value = this.getObjectAttribute(entry, depth.entry);
+		if (query >= value) {
+			this.pushToAttributeArray(results, depth.query, entry);
+		}
 	}
 
 	findNonIndexedEqual(query, entry, results, depth) {
-		this.logger.log(`Equal for non-indexed at ${depth}, Q:${query} - E:${entry}`);
+		this.logger.log(`Equal for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
-		if (query === entry) {
-			this.addValueToResult(results, depth, entry);
-			return true;
+		const value = this.getObjectAttribute(entry, depth.entry);
+		if (query === value) {
+			this.pushToAttributeArray(results, depth.query, entry);
 		}
-		return false;
 	}
 
 	findNonIndexedNotEqual(query, entry, results, depth) {
-		this.logger.log(`Not Equal for non-indexed at ${depth}`);
+		this.logger.log(`Not Equal for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
-		return;
+		const value = this.getObjectAttribute(entry, depth.entry);
+		if (query !== value) {
+			this.pushToAttributeArray(results, depth.query, entry);
+		}
 	}
 
 	findNonIndexedIn(query, entry, results, depth) {
-		this.logger.log(`Find in for non-indexed at ${depth}`);
+		this.logger.log(`Find in for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
-		return;
+		const value = this.getObjectAttribute(entry, depth.entry);
+		if (query.includes(value)) {
+			this.pushToAttributeArray(results, depth.query, entry);
+		}
 	}
 
 	findNonIndexedNotIn(query, entry, results, depth) {
-		this.logger.log(`Find not in for non-indexed at ${depth}`);
+		this.logger.log(
+			`Find not in for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`,
+		);
 
-		return;
+		const value = this.getObjectAttribute(entry, depth.entry);
+		if (!query.includes(value)) {
+			this.pushToAttributeArray(results, depth.query, entry);
+		}
 	}
 
+	//? This appears to work perfectly, but it cannot consider spaces for some reason
 	findNonIndexedText(query, entry, results, depth) {
-		this.logger.log(`Find Text for non-indexed at ${depth}`);
+		this.logger.log(`Find Text for non-indexed at ${depth.entry}, Q:${query} - E:${entry}`);
+
+		// Build search object criteria
+		var value = this.getObjectAttribute(entry, depth.entry);
+		let search = [];
+
+		let firstChar = query.charAt(0);
+		let lastChar = query.charAt(value.length - 1);
+
+		// In case first character is to be searched for
+		if (firstChar !== '_' && firstChar !== '%') search.push(0);
+
+		while (query.length > 0) {
+			if (query.charAt(0) === '%') {
+				let nextPercent = query.indexOf('%', 1);
+				let nextUnderscore = query.indexOf('_', 1);
+
+				// Avoid -1 for non-existent in string
+				if (nextPercent < 0) nextPercent = Infinity;
+				if (nextUnderscore < 0) nextUnderscore = Infinity;
+
+				if (nextPercent < nextUnderscore) {
+					search.push(query.substring(1, nextPercent));
+					query = query.substring(nextPercent, query.length);
+					continue;
+				}
+
+				if (nextUnderscore < nextPercent) {
+					search.push(query.substring(1, nextUnderscore));
+					query = query.substring(nextUnderscore, query.length);
+
+					let count = 0;
+					for (let i = 0; i < query.length; i++) {
+						if (query.charAt(i) === '_') count++;
+						else break;
+					}
+
+					search.push(count);
+					query = query.substring(count, query.length);
+					continue;
+				}
+
+				if (query.length > 1) search.push(query.substring(1, query.length));
+				break;
+			}
+			if (query.charAt(0) === '_') {
+				let count = 0;
+				for (let i = 0; i < query.length; i++) {
+					if (query.charAt(i) === '_') count++;
+					else break;
+				}
+				search.push(count);
+				query = query.substring(count, query.length);
+
+				let nextPercent = query.indexOf('%', 1);
+				let nextUnderscore = query.indexOf('_', 1);
+
+				// Avoid -1 for non-existent in string
+				if (nextPercent < 0) nextPercent = Infinity;
+				if (nextUnderscore < 0) nextUnderscore = Infinity;
+
+				if (nextPercent < nextUnderscore) {
+					search.push(query.substring(0, nextPercent));
+					query = query.substring(nextPercent, query.length);
+					continue;
+				}
+
+				if (nextUnderscore < nextPercent) {
+					search.push(query.substring(0, nextUnderscore));
+					query = query.substring(nextUnderscore, query.length);
+
+					let count = 0;
+					for (let i = 0; i < query.length; i++) {
+						if (query.charAt(i) === '_') count++;
+						else break;
+					}
+
+					search.push(count);
+
+					query = query.substring(count, query.length);
+					continue;
+				}
+
+				if (query.length > 1) search.push(query);
+				break;
+			}
+			
+			let nextPercent = query.indexOf('%', 1);
+			let nextUnderscore = query.indexOf('_', 1);
+
+			// Avoid -1 for non-existent in string
+			if (nextPercent < 0) nextPercent = Infinity;
+			if (nextUnderscore < 0) nextUnderscore = Infinity;
+
+			if (nextPercent < nextUnderscore) {
+				search.push(query.substring(0, nextPercent));
+				query = query.substring(nextPercent + 1, query.length);
+				continue;
+			}
+
+			if (nextUnderscore < nextPercent) {
+				search.push(query.substring(0, nextUnderscore));
+				query = query.substring(nextUnderscore, query.length);
+
+				let count = 0;
+				for (let i = 0; i < query.length; i++) {
+					if (query.charAt(i) === '_') count++;
+					else break;
+				}
+
+				search.push(count);
+				query = query.substring(count, query.length);
+				continue;
+			}
+
+			if (query.length > 1) search.push(query);
+			break;
+		}
+
+		this.logger.debug("Search object built", this.databaseName);
+		console.log(search);
+
+		// Search
+		let indexedSearch = false;
+		for (const element of search) {
+			if (typeof element === 'number') {
+				value = value.substring(element, value.length);
+				indexedSearch = true;
+				continue;
+			}
+			
+			if (indexedSearch) {
+				if (value.indexOf(element) === 0) {
+					value = value.substring(element.length, value.length);
+					indexedSearch = false;
+					continue;
+				}
+				return;
+			}
+
+			let index = value.indexOf(element);
+			if (index >= 0) {
+				value = value.substring(index + element.length, value.length);
+				continue;
+			}
+			return;
+		}
+
+		// If the method gets to here, that means the text is present in the entry.
+		this.pushToAttributeArray(results, depth.query, entry);
 
 		return;
 	}
 
 	findNonIndexedExists(query, entry, results, depth) {
-		this.logger.log(`Exists for non-indexed at ${depth}`);
+		this.logger.log(`Exists for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
-		return;
+		const value = this.getObjectAttribute(entry, depth.entry);
+		if (query)
+			if (value !== null && value !== undefined) {
+				this.pushToAttributeArray(results, depth.query, entry);
+			} else {
+				if (value === null || value === undefined) {
+					this.pushToAttributeArray(results, depth.query, entry);
+				}
+			}
 	}
 
 	findNonIndexedType(query, entry, results, depth) {
-		this.logger.log(`Find type for non-indexed at ${depth}`);
+		this.logger.log(`Find type for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
-		return;
-	}
-
-	findNonIndexedCount(query, entry, results, depth) {
-		this.logger.log(`Count for non-indexed at ${depth}`);
-
-		return;
+		if (this.getAttributeDataType(entry, depth.entry) === query) {
+			this.pushToAttributeArray(results, depth.query, entry);
+		}
 	}
 
 	/* ------------------------------- deprecated ------------------------------- */
@@ -2043,6 +2244,47 @@ class Zani {
 		curr[attribute[attribute.length - 1]] = value;
 	}
 
+	/** Get a nested value from an object without modifying the object.
+	 *
+	 * @param {object} obj - The object to traverse.
+	 * @param {string[]} attribute - The path to the nested attribute as an array.
+	 * @returns {any} - The value found at the path, or undefined if any part of the path is missing.
+	 */
+	getObjectAttribute(obj, attribute) {
+		let curr = obj;
+
+		for (let i = 0; i < attribute.length; i++) {
+			if (!(attribute[i] in curr)) {
+				return undefined;
+			}
+
+			curr = curr[attribute[i]];
+		}
+
+		return curr;
+	}
+
+	/** Get a nested property from an object without modifying the object, adn return true if its present, or false
+	 * if not.
+	 *
+	 * @param {object} obj - The object to traverse.
+	 * @param {string[]} attribute - The path to the nested attribute as an array.
+	 * @returns {boolean} - True if property is present, false otherwise
+	 */
+	objectHasAttribute(obj, attribute) {
+		let curr = obj;
+
+		for (let i = 0; i < attribute.length; i++) {
+			if (!(attribute[i] in curr)) {
+				return false;
+			}
+
+			curr = curr[attribute[i]];
+		}
+
+		return true;
+	}
+
 	/** Push a value to a attribute array in an object without recursively reducing the object.
 	 *
 	 * This only works with attributes that are already arrays.
@@ -2057,21 +2299,7 @@ class Zani {
 			if (!(attribute[i] in curr)) curr[attribute[i]] = {};
 			curr = curr[attribute[i]];
 		}
-		curr[attribute[attribute.length - 1]] = value;
-	}
-
-	/** Adds a entry to a object attribute of unknown type.
-	 *
-	 * @param {object} obj - The object housing the attribute
-	 * @param {string} attribute - The unflattened path of the attribute
-	 * @param {any} value - The value to add
-	 */
-	addValueToResult(obj, attribute, value) {
-		if (this.getAttributeDataType(obj, attribute) === 'array') {
-			this.pushToAttributeArray(obj, attribute, value);
-		} else {
-			this.setObjectAttribute(obj, attribute, [value]);
-		}
+		curr[attribute[attribute.length - 1]].push(value);
 	}
 
 	/** Returns the data type of a object attribute. Can be:
@@ -2085,14 +2313,11 @@ class Zani {
 	 * @returns The object type in string form
 	 */
 	getAttributeDataType(obj, attribute) {
-		let curr = obj;
-		for (let i = 0; i < attribute.length - 1; i++) {
-			if (!(attribute[i] in curr)) curr[attribute[i]] = {};
-			curr = curr[attribute[i]];
-		}
-		let value = curr[attribute[attribute.length - 1]];
+		let value = obj;
+		if(attribute)
+			value = this.getObjectAttribute(obj, attribute);
 
-		if (!value) return 'undefined';
+		if (value === undefined) return 'undefined';
 		if (Array.isArray(value)) return 'array';
 		if (value === null) return 'null';
 		return typeof value;
