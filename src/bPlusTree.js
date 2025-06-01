@@ -59,6 +59,10 @@ class BPlusTree {
 		} else this.root = this.loadNode(this.meta.root);
 	}
 
+	/* -------------------------------------------------------------------------- */
+	/*                               Search Methods                               */
+	/* -------------------------------------------------------------------------- */
+
 	/** Given a key, search the tree for its associated results, such as a pointer or other value. This will
 	 * return all results, which will be an array of the stored data type, or null if not found/present in
 	 * the tree.
@@ -79,6 +83,40 @@ class BPlusTree {
 
 		// At leaf, return key if present, null if not
 		return current.values[key] || null;
+	}
+
+	/** Returns the maximum, or last, key in the tree.
+	 * 
+	 * @returns {any} - The last key in the tree
+	 */
+	getMaxValue() {
+		let current = this.root;
+		let i = 0;
+
+		// Traverse down the tree until the desired leaf
+		while (!current.isLeaf) {
+			i = current.children.length-1;
+			current = this.loadNode(current.children[i]);
+		}
+
+		// At leaf, return key if present, null if not
+		return current.keys[current.keys.length-1];
+	}
+
+	/** Returns the minimum, or first, key in the tree.
+	 * 
+	 * @returns {any} - The first key in the tree
+	 */
+	getMinValue() {
+		let current = this.root;
+
+		// Traverse down the tree until the desired leaf
+		while (!current.isLeaf) {
+			current = this.loadNode(current.children[0]);
+		}
+
+		// At leaf, return key if present, null if not
+		return current.keys[0];
 	}
 
 	/* -------------------------------------------------------------------------- */
