@@ -1148,13 +1148,10 @@ class Zani {
 		this.logger.log(`Starting indexed query of ${collection}`, this.databaseName);
 		var results = structuredClone(query);
 
-
 		return results;
 	}
 
-	findFromIndexedRouter() {
-
-	}
+	findFromIndexedRouter() {}
 
 	findIndexedGreaterThan(query, entry, results, depth) {
 		this.logger.log(`Greater than for indexed at ${depth}`);
@@ -1326,7 +1323,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query < value) {
-			this.pushToAttributeSet(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry._id);
 		}
 	}
 
@@ -1355,7 +1352,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query <= value) {
-			this.pushToAttributeSet(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry._id);
 		}
 	}
 
@@ -1382,7 +1379,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query > value) {
-			this.pushToAttributeSet(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry._id);
 		}
 	}
 
@@ -1411,7 +1408,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query >= value) {
-			this.pushToAttributeSet(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry._id);
 		}
 	}
 
@@ -1438,7 +1435,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query === value) {
-			this.pushToAttributeSet(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry._id);
 		}
 	}
 
@@ -1465,7 +1462,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query !== value) {
-			this.pushToAttributeSet(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry._id);
 		}
 	}
 
@@ -1492,7 +1489,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query.includes(value)) {
-			this.pushToAttributeSet(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry._id);
 		}
 	}
 
@@ -1521,7 +1518,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (!query.includes(value)) {
-			this.pushToAttributeSet(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry._id);
 		}
 	}
 
@@ -1695,7 +1692,7 @@ class Zani {
 		}
 
 		// If the method gets to here, that means the text is present in the entry.
-		this.pushToAttributeSet(results, depth.query, entry);
+		this.pushToAttributeSet(results, depth.query, entry._id);
 
 		return;
 	}
@@ -1722,14 +1719,14 @@ class Zani {
 		this.logger.log(`Exists for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
 		const value = this.getObjectAttribute(entry, depth.entry);
-		if (query)
-			if (value !== null && value !== undefined) {
-				this.pushToAttributeSet(results, depth.query, entry);
-			} else {
-				if (value === null || value === undefined) {
-					this.pushToAttributeSet(results, depth.query, entry);
-				}
+		if (query) {
+			if (value !== null && value !== undefined)
+				this.pushToAttributeSet(results, depth.query, entry._id);
+		} else {
+			if (value === null || value === undefined) {
+				this.pushToAttributeSet(results, depth.query, entry._id);
 			}
+		}
 	}
 
 	/** Type ($type) search for non-indexed attributes/collections.
@@ -1754,7 +1751,7 @@ class Zani {
 		this.logger.log(`Find type for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
 		if (this.getAttributeDataType(entry, depth.entry) === query) {
-			this.pushToAttributeSet(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry._id);
 		}
 	}
 
@@ -2561,9 +2558,9 @@ class Zani {
 		curr[attribute[attribute.length - 1]].add(value);
 	}
 
-	/** Returns the data type of a object attribute. If attribute is omitted, the passed obj value 
+	/** Returns the data type of a object attribute. If attribute is omitted, the passed obj value
 	 * will be assessed. Otherwise, it will retrieve the value at the attribute from the object passed.
-	 * 
+	 *
 	 * Can be:
 	 * - 'undefined'
 	 * - 'null'
