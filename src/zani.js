@@ -944,9 +944,6 @@ class Zani {
 		i can then do the $and combination, or the $or if it were the key value, without introducing race condition.		
 		*/
 
-		//? What to do if attribute is indexed but not included in the indexed files?
-		//* Assume does not exist.
-
 		// Dispatch queries
 		const [indexedResults, nonIndexedResults] = await Promise.all([
 			this.findFromIndexed(collection, queries.indexed),
@@ -1021,11 +1018,20 @@ class Zani {
 			// Flatten key and check if its indexed
 			var flattenedKey = this.flattenAttribute([...queries.depth, key]);
 			if (this.meta.collections[collection].indexed.includes(flattenedKey)) {
-				Object.defineProperty(queries.indexed, key, {
-					value: query[key],
-					writable: false,
-					enumerable: true,
-				});
+				// Ensure $text searches are always brute forced
+				if (query[key].hasOwnProperty('$text') || query[key].hasOwnProperty('$type')) {
+					Object.defineProperty(queries.notIndexed, key, {
+						value: query[key],
+						writable: false,
+						enumerable: true,
+					});
+				} else {
+					Object.defineProperty(queries.indexed, key, {
+						value: query[key],
+						writable: false,
+						enumerable: true,
+					});
+				}
 			} else {
 				// if attribute value is an object, recursively traverse
 				if (typeof query[key] === 'object' && query[key] !== null && !Array.isArray(query[key])) {
@@ -1092,8 +1098,8 @@ class Zani {
 			nonIndexed: this.findNonIndexedGreaterThanEqual.bind(this),
 		},
 		$lt: {
-			indexed: this.findIndexedGreaterThan.bind(this),
-			nonIndexed: this.findNonIndexedGreaterThan.bind(this),
+			indexed: this.findIndexedLessThan.bind(this),
+			nonIndexed: this.findNonIndexedLessThan.bind(this),
 		},
 		$lte: {
 			indexed: this.findIndexedLessThanEqual.bind(this),
@@ -1118,7 +1124,6 @@ class Zani {
 			nonIndexed: this.findNonIndexedNotIn.bind(this),
 		},
 		$text: {
-			indexed: this.findIndexedText.bind(this),
 			nonIndexed: this.findNonIndexedText.bind(this),
 		},
 
@@ -1127,7 +1132,6 @@ class Zani {
 			nonIndexed: this.findNonIndexedExists.bind(this),
 		},
 		$type: {
-			indexed: this.findIndexedType.bind(this),
 			nonIndexed: this.findNonIndexedType.bind(this),
 		},
 
@@ -1144,84 +1148,366 @@ class Zani {
 
 	/* ------------------------- Query (Indexed) Methods ------------------------ */
 
+	/** Search a collection by apply a query criteria, and checking all appropriate entries based on file indexes. 
+	 * All entries that match will be added to their respective results object value, which contains attributes 
+	 * tracking where each entry passed for later processing within {@link Zani#find}.
+	 * 
+	 * Note: Any files missing from the index attributes will be assumed to be non-existent, or at minimum, lacking
+	 * the indexed attribute.
+	 *
+	 * This method is for indexed queries, and uses a for each criteria, search entries. For non-indexed
+	 * attributes, use {@link Zani#findNonIndexed}.
+	 *
+	 * @param {string} collection - The name of the collection to search
+	 * @param {object} query - The criteria to apply to each entry
+	 * @returns - The results object.
+	 */
 	async findFromIndexed(collection, query) {
 		this.logger.log(`Starting indexed query of ${collection}`, this.databaseName);
+		const start = Date.now();
 		var results = structuredClone(query);
+		this.prepareResultsObject(results);
 
+		if (Object.getOwnPropertyNames(query).length != 0)
+			this.findFromIndexedRouter(collection, query, results);
+
+		const end = Date.now();
+		const total = (end - start) / 1000;
+		this.logger.log(
+			`Indexed query of ${collection} complete in ${total} seconds.`,
+			this.databaseName,
+		);
 		return results;
 	}
 
-	findFromIndexedRouter() {}
+	/** Given a criteria, route all queries to proper method and construct the results object. This method is
+	 * called from and will return to {@link Zani#findIndexed}. This method is recursive and will be called
+	 * for every $queryOperator or nested object within the query. 
+	 *
+	 * @see {@link Zani#find}
+	 * @see {@link Zani#findIndexed}
+	 *
+	 * @param {string} collection - The collection to search
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 * @param {object} depth - The variable tracking the current object depth, and attribute path (unflattened)
+	 *
+	 * @returns {object[]}
+	 */
+	findFromIndexedRouter(collection, query, results, depth = { entry: [], query: [] }) {
+		for (const key in query) {
+			if (key.charAt(0) !== '$') depth.entry.push(key);
+			depth.query.push(key);
 
-	findIndexedGreaterThan(query, entry, results, depth) {
-		this.logger.log(`Greater than for indexed at ${depth}`);
+			let attributeValue = this.getAttributeDataType(query[key]);
+
+			if (attributeValue === 'object') {
+				this.findFromIndexedRouter(collection, query[key], results, depth);
+			} else if (key.charAt(0) === '$' && !this.queryOperators.logical.hasOwnProperty(key)) {
+				this.queryOperators[key].indexed(collection, query[key], results, depth);
+			} else if (attributeValue !== null && attributeValue !== undefined) {
+				this.findIndexedEqual(collection, query[key], results, depth);
+			}
+
+			if (!key.charAt(0) === '$') depth.entry.pop();
+			depth.query.pop();
+		}
+	}
+
+	/** Greater than ($gt) search for indexed attributes/collections.
+	 *
+	 * Search the entry provided for values greater than the query's value, based on indexed values. 
+	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$gt: 3}}
+	 * results: any entry with attribute value greater than, but not including, 3.
+	 *
+	 * @see {@link Zani#findIndexed}
+	 * @see {@link Zani#findIndexedRouter}
+	 *
+	 * @param {string} collection - The name of the collection to search
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
+	findIndexedGreaterThan(collection, query, results, depth) {
+		this.logger.log(`Greater than for indexed at ${depth.entry}, Q: ${query}`);
+		const tree = new BPlusTree(this.getIndexPath(collection, depth.entry));
+		const max = tree.getMaxValue();
+
+		if (max <= query) return;
+
+		this.pushToAttributeSet(results, depth.query, tree.getRange(query + 1, max));
 
 		return;
 	}
 
-	findIndexedGreaterThanEqual(query, entry, results, depth) {
-		this.logger.log(`Greater than equal for indexed at ${depth}`);
+	/** Greater than or equal to ($gte) search for indexed attributes/collections.
+	 *
+	 * Search the entry provided for values greater than or equal to the query's value, based on indexed values. 
+	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$gte: 3}}
+	 * results: any entry with attribute value greater than or equal to 3.
+	 *
+	 * @see {@link Zani#findIndexed}
+	 * @see {@link Zani#findIndexedRouter}
+	 *
+	 * @param {string} collection - The name of the collection to search
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
+	findIndexedGreaterThanEqual(collection, query, results, depth) {
+		this.logger.log(`Greater than equal to for indexed at ${depth.entry}, Q: ${query}`);
+		const tree = new BPlusTree(this.getIndexPath(collection, depth.entry));
+		const max = tree.getMaxValue();
+
+		if (max < query) return;
+
+		this.pushToAttributeSet(results, depth.query, tree.getRange(query, max));
 
 		return;
 	}
 
-	findIndexedLessThan(query, entry, results, depth) {
-		this.logger.log(`Less than for indexed at ${depth}`);
+	/** Less than ($lt) search for indexed attributes/collections.
+	 *
+	 * Search the entry provided for values less than the query's value, based on indexed values. 
+	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$lt: 3}}
+	 * results: any entry with attribute value less than, but not including, 3.
+	 *
+	 * @see {@link Zani#findIndexed}
+	 * @see {@link Zani#findIndexedRouter}
+	 *
+	 * @param {string} collection - The name of the collection to search
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
+	findIndexedLessThan(collection, query, results, depth) {
+		this.logger.log(`Less than for indexed at ${depth.entry}, Q: ${query}`);
+		const tree = new BPlusTree(this.getIndexPath(collection, depth.entry));
+		const min = tree.getMinValue();
+
+		if (min >= query) return;
+
+		this.pushToAttributeSet(results, depth.query, tree.getRange(min, query - 1));
 
 		return;
 	}
 
-	findIndexedLessThanEqual(query, entry, results, depth) {
-		this.logger.log(`Less than equal for indexed at ${depth}`);
+	/** Less than equal to ($lte) search for indexed attributes/collections.
+	 *
+	 * Search the entry provided for values less than or equal to the query's value, based on indexed values. 
+	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$lte: 3}}
+	 * results: any entry with attribute value less than, or equal to, 3.
+	 *
+	 * @see {@link Zani#findIndexed}
+	 * @see {@link Zani#findIndexedRouter}
+	 *
+	 * @param {string} collection - The name of the collection to search
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
+	findIndexedLessThanEqual(collection, query, results, depth) {
+		this.logger.log(`Less than equal to for indexed at ${depth.entry}, Q: ${query}`);
+		const tree = new BPlusTree(this.getIndexPath(collection, depth.entry));
+		const min = tree.getMinValue();
+
+		if (min > query) return;
+
+		this.pushToAttributeSet(results, depth.query, tree.getRange(min, query));
 
 		return;
 	}
 
-	findIndexedEqual(query, entry, results, depth) {
-		this.logger.log(`Equal for indexed at ${depth}`);
+	/** Equal to ($eq) search for indexed attributes/collections.
+	 *
+	 * Search the entry provided for values equal to the query's value, based on indexed values. 
+	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$eq: 3}} OR {value: 3}
+	 * results: any entry with attribute value equal to 3.
+	 *
+	 * @see {@link Zani#findIndexed}
+	 * @see {@link Zani#findIndexedRouter}
+	 *
+	 * @param {string} collection - The name of the collection to search
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
+	findIndexedEqual(collection, query, results, depth) {
+		this.logger.log(`Equal to for indexed at ${depth.entry}, Q: ${query}`);
+		const tree = new BPlusTree(this.getIndexPath(collection, depth.entry));
+
+		this.pushToAttributeSet(results, depth.query, tree.search(query));
 
 		return;
 	}
 
-	findIndexedNotEqual(query, entry, results, depth) {
-		this.logger.log(`Not Equal for indexed at ${depth}`);
+	/** Not Equal to ($ne) search for indexed attributes/collections.
+	 *
+	 * Search the entry provided for values not equal to the query's value, based on indexed values. 
+	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$ne: 3}}
+	 * results: any entry with attribute value not equal to 3.
+	 * 
+	 * @see {@link Zani#findIndexed}
+	 * @see {@link Zani#findIndexedRouter}
+	 *
+	 * @param {string} collection - The name of the collection to search
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
+	findIndexedNotEqual(collection, query, results, depth) {
+		this.logger.log(`Not Equal to for indexed at ${depth.entry}, Q: ${query}`);
+		const tree = new BPlusTree(this.getIndexPath(collection, depth.entry));
+
+		var validIndexes = new Set(tree.getRange(-Infinity, Infinity));
+		var invalidIndexes = new Set(tree.search(query));
+		var resultIndexes = this.setDifference(validIndexes, invalidIndexes);
+
+		this.pushToAttributeSet(results, depth.query, [...resultIndexes]);
 
 		return;
 	}
 
-	findIndexedIn(query, entry, results, depth) {
-		this.logger.log(`Find in for indexed at ${depth}`);
+	/** In ($in) search for indexed attributes/collections.
+	 *
+	 * Search the entry provided for values contained within query's array of values, based on indexed values. 
+	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}..
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$in: [2, 3, 5]}}
+	 * results: any entry with attribute value 2, 3, or 5.
+	 *
+	 * @see {@link Zani#findIndexed}
+	 * @see {@link Zani#findIndexedRouter}
+	 *
+	 * @param {string} collection - The name of the collection to search
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
+	findIndexedIn(collection, query, results, depth) {
+		this.logger.log(`In for indexed at ${depth.entry}, Q: ${query}`);
+		const tree = new BPlusTree(this.getIndexPath(collection, depth.entry));
+
+		var resultIndexes = [];
+		for (const element of query) {
+			resultIndexes.push(...tree.search(element));
+		}
+
+		this.pushToAttributeSet(results, depth.query, resultIndexes);
 
 		return;
 	}
 
-	findIndexedNotIn(query, entry, results, depth) {
-		this.logger.log(`Find not in for indexed at ${depth}`);
+	/** Not In ($nin) search for indexed attributes/collections.
+	 *
+	 * Search the entry provided for values not contained within query's array of values, based on indexed values. 
+	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}..
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$nin: [2, 3, 5]}}
+	 * results: any entry with attribute value not equal to 2, 3, or 5.
+	 *
+	 * @see {@link Zani#findIndexed}
+	 * @see {@link Zani#findIndexedRouter}
+	 *
+	 * @param {string} collection - The name of the collection to search
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
+	findIndexedNotIn(collection, query, results, depth) {
+		this.logger.log(`Not in for indexed at ${depth.entry}, Q: ${query}`);
+		const tree = new BPlusTree(this.getIndexPath(collection, depth.entry));
+
+		var validIndexes = new Set(tree.getRange(-Infinity, Infinity));
+		var invalidIndexes = [];
+
+		for (const element of query) {
+			invalidIndexes.push(...tree.search(element));
+		}
+
+		var resultIndexes = this.setDifference(validIndexes, new Set(invalidIndexes));
+
+		this.pushToAttributeSet(results, depth.query, [...resultIndexes]);
 
 		return;
 	}
 
-	findIndexedText(query, entry, results, depth) {
-		this.logger.log(`Find Text for indexed at ${depth}`);
+	/** Exists ($exists) search for indexed attributes/collections.
+	 *
+	 * Search the entry provided for an attributes presence, based on indexed values. 
+	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {value: {$exists: true}
+	 * results: any entry with attribute value
+	 *
+	 * @see {@link Zani#findIndexed}
+	 * @see {@link Zani#findIndexedRouter}
+	 *
+	 * @param {string} collection - The name of the collection to search
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} entry - The entry to check for fitting values
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 */
+	findIndexedExists(collection, query, results, depth) {
+		this.logger.log(`Exists for indexed at ${depth.entry}, Q: ${query}`);
+		const tree = new BPlusTree(this.getIndexPath(collection, depth.entry));
 
-		return;
-	}
+		var resultIndexes = new Set();
+		if(query) {
+			resultIndexes = new Set(tree.getRange(-Infinity, Infinity));
+		} else {
+			var validIndexes = new Set(tree.getRange(-Infinity, Infinity));
+			var collectionSize = this.getCollectionSize(collection);
 
-	findIndexedExists(query, entry, results, depth) {
-		this.logger.log(`Exists for indexed at ${depth}`);
+			for(let i = 0; i<collectionSize; i++) {
+				if(validIndexes.has(i)) continue;
+				if(this.meta.collections[collection].availableIDs.includes(i)) continue;
 
-		return;
-	}
+				resultIndexes.add(i);
+			}
+		}
 
-	findIndexedType(query, entry, results, depth) {
-		this.logger.log(`Find type for indexed at ${depth}`);
-
-		return;
-	}
-
-	findIndexedCount(query, entry, results, depth) {
-		this.logger.log(`Count for indexed at ${depth}`);
-
+		this.pushToAttributeSet(results, depth.query, [...resultIndexes]);
+		
 		return;
 	}
 
@@ -1240,22 +1526,32 @@ class Zani {
 	 */
 	async findFromNonIndexed(collection, query) {
 		this.logger.log(`Starting non-indexed query of ${collection}`, this.databaseName);
+		const start = Date.now();
 		var results = structuredClone(query);
 		this.prepareResultsObject(results);
 
-		// Cycle through each entry, and compare to the query
-		var entryCount = this.getCollectionSize(collection);
+		if (Object.getOwnPropertyNames(query).length != 0) {
+			// Cycle through each entry, and compare to the query
+			var entryCount = this.getCollectionSize(collection);
 
-		for (let i = 0; i < entryCount; i++) {
-			await this.semaphore.acquire();
-			const entry = await this.getEntryAsync(collection, i);
-			this.semaphore.release();
+			for (let i = 0; i < entryCount; i++) {
+				await this.semaphore.acquire();
+				const entry = await this.getEntryAsync(collection, i);
+				this.semaphore.release();
 
-			if (entry === null) continue;
+				if (entry === null) continue;
 
-			this.findFromNonIndexedRouter(query, entry, results);
+				this.findFromNonIndexedRouter(query, entry, results);
+			}
 		}
 
+		const end = Date.now();
+		const total = (end - start) / 1000;
+
+		this.logger.log(
+			`Non-indexed query of ${collection} complete in ${total} seconds`,
+			this.databaseName,
+		);
 		return results;
 	}
 
@@ -1317,9 +1613,9 @@ class Zani {
 	 * @param {object} results - The results storage object, which any matching entries will be added to.
 	 */
 	findNonIndexedGreaterThan(query, entry, results, depth) {
-		this.logger.log(
-			`Greater than for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`,
-		);
+		// this.logger.log(
+		// 	`Greater than for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`,
+		// );
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query < value) {
@@ -1547,6 +1843,8 @@ class Zani {
 
 		// Build search object criteria
 		var value = this.getObjectAttribute(entry, depth.entry);
+		if(typeof value !== 'string') return;
+
 		let search = [];
 
 		let firstChar = query.charAt(0);
@@ -1661,9 +1959,6 @@ class Zani {
 			if (query.length > 1) search.push(query);
 			break;
 		}
-
-		this.logger.debug('Search object built', this.databaseName);
-		console.log(search);
 
 		// Search
 		let indexedSearch = false;
@@ -2543,19 +2838,30 @@ class Zani {
 
 	/** Push a value to a attribute set in an object without recursively reducing the object.
 	 *
-	 * This only works with attributes that are already sets.
+	 * This only works with attributes that are already sets, and cannot add arrays into the set.
+	 *
+	 * If value is an array, each individual value within the array will be added to the set.
 	 *
 	 * @param {object} obj - The object to traverse
-	 * @param {string} attribute - The unflattened attribute to set
+	 * @param {string[]} attribute - The unflattened attribute to set
 	 * @param {any} value - The value to set
 	 */
 	pushToAttributeSet(obj, attribute, value) {
 		let curr = obj;
+
 		for (let i = 0; i < attribute.length - 1; i++) {
 			if (!(attribute[i] in curr)) curr[attribute[i]] = {};
+
 			curr = curr[attribute[i]];
 		}
-		curr[attribute[attribute.length - 1]].add(value);
+
+		const key = attribute[attribute.length - 1];
+		if (!Array.isArray(value)) {
+			curr[key].add(value);
+			return;
+		}
+
+		for (let i = 0; i < value.length; i++) curr[key].add(value[i]);
 	}
 
 	/** Returns the data type of a object attribute. If attribute is omitted, the passed obj value
@@ -2581,6 +2887,26 @@ class Zani {
 		return typeof value;
 	}
 
+	/** Returns the index path for a attribute and collection. The attribute can be passed in either flattened
+	 * or unflattened form.
+	 *
+	 * @param {string} collection - The collection name
+	 * @param {string | string[]} attribute - The attribute
+	 */
+	getIndexPath(collection, attribute) {
+		if (Array.isArray(attribute)) attribute = this.flattenAttribute(attribute);
+
+		return `${this.databaseName}\\indexes\\${collection}\\${attribute}`;
+	}
+
+	/** Returns the difference between setA and setB. This is equivalent to setA/setB.
+	 *
+	 * @param {Set} setA - The set to divide
+	 * @param {Set} setB - The set to divide by
+	 */
+	setDifference(setA, setB) {
+		return new Set([...setA].filter((x) => !setB.has(x)));
+	}
 	/* -------------------------------------------------------------------------- */
 	/*                                  Utilities                                 */
 	/* -------------------------------------------------------------------------- */
