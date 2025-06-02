@@ -34,7 +34,6 @@ const ZaniSemaphore = require('./zaniSemaphore');
 	- Change query system to be entry based rather than condition based (What it is now)
 		- This comes first. It may change next steps (IE with nested objects)
 	- Fix nested objects problem (See below).
-	- Finish query functions
 	- Create a MD documentation of query to follow
 	- implement .trash folder later for safer deletion of items
 	- Clean up code
@@ -856,6 +855,29 @@ class Zani {
 	/*                            Query Related Methods                           */
 	/* -------------------------------------------------------------------------- */
 
+	//TODO consider updating results to be ID based to limit memory usage until after logical operatiosn
+	//TODO replace results array to sets
+	/*
+	* Zani Query flow/breakdown
+		- Given an query, split into indexed and non-indexed attributes
+		- Process both in parallel, excluding logical operators ($and/$or, etc.)
+			For Indexed:
+				- Use indexes to narrow search to matching values only
+				- Query based (For each condition in indexed query, check appropriate entries based on indexes)
+			For non-indexed
+				- For each entry, run the query. Before each query condition, check that entry has attribute,
+					otherwise, continue
+				- Check all entries in collection
+			For both
+				- Result entries are added to a results object that matches the query, storing all entries
+					that pass each condition at condition instead of value. Stores their ids
+					IE {value: 5} in results equal {value: set(entry1, entry2, ...)}
+		- Conduct logical operators based on result objects (1 per indexed/non-indexed queries)
+		- TODO Groupby(?) cases
+		- Read entries into results set
+		- Projection
+		- Sorting
+	*/
 	//TODO create a single object variant
 	/** Perform a query operation on the collection provided. This option of query is slow, and will search
 	 * each entry in the collection for each condition. This method is best used for indexing.
@@ -1042,7 +1064,7 @@ class Zani {
 		return queries;
 	}
 
-	/** Replace all attributes in an object value field with an empty array. This method is designed to
+	/** Replace all attributes in an object value field with an empty set. This method is designed to
 	 * prepare the results object in a query for the addition of entries that meet their criteria
 	 *
 	 * @param {object} results - The object to update.
@@ -1050,7 +1072,7 @@ class Zani {
 	prepareResultsObject(results) {
 		for (const key in results) {
 			if (typeof results[key] !== 'object' || Array.isArray(results[key])) {
-				results[key] = [];
+				results[key] = new Set();
 			} else if (results[key] !== null || results[key] !== undefined) {
 				this.prepareResultsObject(results[key]);
 			}
@@ -1122,11 +1144,16 @@ class Zani {
 
 	/* ------------------------- Query (Indexed) Methods ------------------------ */
 
-	findFromIndexed(collection, query) {
+	async findFromIndexed(collection, query) {
 		this.logger.log(`Starting indexed query of ${collection}`, this.databaseName);
-		var results = query;
+		var results = structuredClone(query);
+
 
 		return results;
+	}
+
+	findFromIndexedRouter() {
+
 	}
 
 	findIndexedGreaterThan(query, entry, results, depth) {
@@ -1299,7 +1326,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query < value) {
-			this.pushToAttributeArray(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry);
 		}
 	}
 
@@ -1328,7 +1355,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query <= value) {
-			this.pushToAttributeArray(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry);
 		}
 	}
 
@@ -1355,7 +1382,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query > value) {
-			this.pushToAttributeArray(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry);
 		}
 	}
 
@@ -1384,7 +1411,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query >= value) {
-			this.pushToAttributeArray(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry);
 		}
 	}
 
@@ -1411,7 +1438,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query === value) {
-			this.pushToAttributeArray(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry);
 		}
 	}
 
@@ -1438,7 +1465,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query !== value) {
-			this.pushToAttributeArray(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry);
 		}
 	}
 
@@ -1465,7 +1492,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query.includes(value)) {
-			this.pushToAttributeArray(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry);
 		}
 	}
 
@@ -1494,7 +1521,7 @@ class Zani {
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (!query.includes(value)) {
-			this.pushToAttributeArray(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry);
 		}
 	}
 
@@ -1668,7 +1695,7 @@ class Zani {
 		}
 
 		// If the method gets to here, that means the text is present in the entry.
-		this.pushToAttributeArray(results, depth.query, entry);
+		this.pushToAttributeSet(results, depth.query, entry);
 
 		return;
 	}
@@ -1697,10 +1724,10 @@ class Zani {
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query)
 			if (value !== null && value !== undefined) {
-				this.pushToAttributeArray(results, depth.query, entry);
+				this.pushToAttributeSet(results, depth.query, entry);
 			} else {
 				if (value === null || value === undefined) {
-					this.pushToAttributeArray(results, depth.query, entry);
+					this.pushToAttributeSet(results, depth.query, entry);
 				}
 			}
 	}
@@ -1727,7 +1754,7 @@ class Zani {
 		this.logger.log(`Find type for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`);
 
 		if (this.getAttributeDataType(entry, depth.entry) === query) {
-			this.pushToAttributeArray(results, depth.query, entry);
+			this.pushToAttributeSet(results, depth.query, entry);
 		}
 	}
 
@@ -2517,31 +2544,34 @@ class Zani {
 		return true;
 	}
 
-	/** Push a value to a attribute array in an object without recursively reducing the object.
+	/** Push a value to a attribute set in an object without recursively reducing the object.
 	 *
-	 * This only works with attributes that are already arrays.
+	 * This only works with attributes that are already sets.
 	 *
 	 * @param {object} obj - The object to traverse
 	 * @param {string} attribute - The unflattened attribute to set
 	 * @param {any} value - The value to set
 	 */
-	pushToAttributeArray(obj, attribute, value) {
+	pushToAttributeSet(obj, attribute, value) {
 		let curr = obj;
 		for (let i = 0; i < attribute.length - 1; i++) {
 			if (!(attribute[i] in curr)) curr[attribute[i]] = {};
 			curr = curr[attribute[i]];
 		}
-		curr[attribute[attribute.length - 1]].push(value);
+		curr[attribute[attribute.length - 1]].add(value);
 	}
 
-	/** Returns the data type of a object attribute. Can be:
+	/** Returns the data type of a object attribute. If attribute is omitted, the passed obj value 
+	 * will be assessed. Otherwise, it will retrieve the value at the attribute from the object passed.
+	 * 
+	 * Can be:
 	 * - 'undefined'
 	 * - 'null'
 	 * - 'array'
 	 * - any result of typeof keyword
 	 *
-	 * @param {object} obj - The object holding the desired attribute
-	 * @param {string} attribute - The unflattened path of the attribute
+	 * @param {any} obj - The object holding the desired attribute
+	 * @param {string?} attribute - The unflattened path of the attribute
 	 * @returns The object type in string form
 	 */
 	getAttributeDataType(obj, attribute) {
