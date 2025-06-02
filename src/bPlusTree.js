@@ -72,6 +72,7 @@ class BPlusTree {
 	 */
 	search(key) {
 		let current = this.root;
+
 		// Traverse down the tree until the desired leaf
 		while (!current.isLeaf) {
 			let i = 0;
@@ -86,7 +87,7 @@ class BPlusTree {
 	}
 
 	/** Returns the maximum, or last, key in the tree.
-	 * 
+	 *
 	 * @returns {any} - The last key in the tree
 	 */
 	getMaxValue() {
@@ -95,16 +96,16 @@ class BPlusTree {
 
 		// Traverse down the tree until the desired leaf
 		while (!current.isLeaf) {
-			i = current.children.length-1;
+			i = current.children.length - 1;
 			current = this.loadNode(current.children[i]);
 		}
 
 		// At leaf, return key if present, null if not
-		return current.keys[current.keys.length-1];
+		return current.keys[current.keys.length - 1];
 	}
 
 	/** Returns the minimum, or first, key in the tree.
-	 * 
+	 *
 	 * @returns {any} - The first key in the tree
 	 */
 	getMinValue() {
@@ -119,6 +120,48 @@ class BPlusTree {
 		return current.keys[0];
 	}
 
+	/** Return all indexes that have the key ranges. It will return all values stored at start<=x<=end.
+	 *
+	 * @param {any} start - The minium value of the range (Inclusive)
+	 * @param {any} end - The max value of the range (Inclusive)
+	 * @returns
+	 */
+	getRange(start, end) {
+		let current = this.root;
+
+		if (start > end) return [];
+
+		// Traverse down the tree until the desired leaf
+		while (!current.isLeaf) {
+			let i = 0;
+			while (i < current.keys.length && start >= current.keys[i]) {
+				i++;
+			}
+			current = this.loadNode(current.children[i]);
+		}
+
+		// Traverse chain until end value, return
+		let key = start;
+		let results = [];
+		while (key <= end) {
+			let keyArray = Object.getOwnPropertyNames(current.values);
+
+			for (key of keyArray) {
+				if (key < start) continue;
+				if (key > end) return results;
+				results.push(...current.values[key]);
+			}
+
+			// Ensure next node
+			if (current.next === null) {
+				return results;
+			}
+			current = this.loadNode(current.next);
+		}
+
+		return results;
+	}
+
 	/* -------------------------------------------------------------------------- */
 	/*                              Insertion Methods                             */
 	/* -------------------------------------------------------------------------- */
@@ -131,8 +174,7 @@ class BPlusTree {
 	 * @param {any} value - The value to store at the key.
 	 */
 	insert(key, value) {
-		if(!key || !value)
-			return;
+		if (!key || !value) return;
 
 		this.updatedMetaValues = false; // Reset
 		const result = this.insertRecursive(this.root, key, value);
