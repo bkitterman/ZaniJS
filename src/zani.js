@@ -137,6 +137,7 @@ class Zani {
 		fileLimit: 100,
 		treeOrder: 100,
 		crashDetector: true,
+		smartIndexing: true,
 		consoleOptions: {
 			systemLog: true,
 			consoleLog: true,
@@ -153,6 +154,7 @@ class Zani {
 	 * @param {number} [options.fileLimit=100] - Defines how many files can be opened by the program at any given time.
 	 * @param {boolean} [options.crashDetector=true] - Enable crash detecting method to handle unexpected events, and log errors.
 	 * @param {number} [options.treeOrder] - Define the max number of entries in any node of any index tree.
+	 * @param {boolean} [options.smartIndexing] - When a value is queried 10 times, a index will be automatically created if not already present.
 	 * @param {object} options.consoleOptions - Define the console options to be used by the logging object.
 	 *
 	 * @param {boolean} [options.consoleOptions.consoleLog=true] - Enable console logging
@@ -204,12 +206,15 @@ class Zani {
 	 * @param {number} [options.fileLimit=100] - Defines how many files can be opened by the program at any given time.
 	 * @param {boolean} [options.crashDetector=true] - Enable crash detecting method to handle unexpected events, and log errors.
 	 * @param {number} [options.treeOrder] - Define the max number of entries in any node of any index tree.
+	 * @param {boolean} [options.smartIndexing] - When a value is queried 10 times, a index will be automatically created if not already present.
+	 * 
 	 * @param {object} options.consoleOptions - Define the console options to be used by the logging object.
 	 */
 	configureOptions(options) {
 		if (options.hasOwnProperty('fileLimit')) this.options.fileLimit = options.fileLimit;
 		if (options.hasOwnProperty('crashDetector')) this.options.crashDetector = options.crashDetector;
 		if (options.hasOwnProperty('treeOrder')) this.options.treeOrder = options.treeOrder;
+		if (options.hasOwnProperty('smartIndexing')) this.options.smartIndexing = options.smartIndexing;
 
 		if (options.hasOwnProperty('consoleOptions'))
 			this.logger.configureOptions(options.consoleOptions);
@@ -523,7 +528,7 @@ class Zani {
 		for (let i = 0; i < collectionSize; i++) {
 			var hasProperty = true;
 			await this.semaphore.acquire();
-			let entry = this.getEntryAsync(collection, i);
+			let entry = await this.getEntryAsync(collection, i);
 			this.semaphore.release();
 
 			// Prevent fragmentation from throwing system off
@@ -898,11 +903,6 @@ class Zani {
 		var results = [];
 		var queries = { indexed: {}, notIndexed: {}, depth: [] };
 
-		// Testing Code (Before breakdown)
-		console.group('------------------- Query Building Test -------------------');
-		console.log('Criteria: ');
-		console.log(query);
-
 		// Build 2 query objects, one for the indexed values and one for the non-indexed values
 		if (!collection) {
 			results = this.getCollection(collection);
@@ -916,12 +916,6 @@ class Zani {
 			}
 		}
 
-		// Testing Code (results)
-		console.log('\nQuery - Indexed');
-		console.log(queries.indexed);
-		console.log('\nQuery - Not Indexed');
-		console.log(queries.notIndexed);
-		console.groupEnd();
 		/* 
 		Two queries in parallel, replace the query object 'conditions' with the results
 		Do $and, $not, $or here by referencing the two since they share the same structure
@@ -970,6 +964,7 @@ class Zani {
 		// Build results array
 		this.logger.log(`Reading entries from query`);
 		const readingStart = Date.now();
+
 		const resultSize = resultSet.size;
 		const setIterator = resultSet[Symbol.iterator]();
 		for(let i = 0; i<resultSize; i++) {
@@ -985,6 +980,7 @@ class Zani {
 					}
 				}
 			}
+
 			// If it was the last key in element, remove by not adding it to array
 			if (Object.keys(element).length !== 0)
 				results.push(element);
@@ -1020,6 +1016,17 @@ class Zani {
 		}
 
 		// if smart indexing is enabled, check through here.
+		if(this.options.smartIndexing) {
+			this.smartIndex(collection, query);
+
+			// Create indexes if needed
+			for(const value in this.meta.collections[collection].queryStats) {
+				if(this.meta.collections[collection].queryStats[value] === 10) {
+					this.createIndex(collection, value);
+				}
+ 			}
+			this.updateMetaFile();
+		}
 
 		const end = Date.now();
 		const totalTime = (end-start)/1000;
@@ -1106,6 +1113,30 @@ class Zani {
 			} else if (results[key] !== null || results[key] !== undefined) {
 				this.prepareResultsObject(results[key]);
 			}
+		}
+	}
+
+	smartIndex(collection, query, depth = []) {
+		for(const key in query) {
+			if(key.charAt(0) !== '$') depth.push(key);
+			var value = query[key];
+
+			if(typeof value === 'object' && !Array.isArray(value))
+				this.smartIndex(collection, query[key], depth);
+			else {
+				const flat = this.flattenAttribute(depth);
+				if(this.meta.collections[collection].queryStats.hasOwnProperty(flat))
+					this.meta.collections[collection].queryStats[flat]++;
+				else {
+					Object.defineProperty(this.meta.collections[collection].queryStats, flat, {
+						value: 1,
+						enumerable: true,
+						writable: true
+					});
+				}
+			}
+			
+			if(key.charAt(0) !== '$') depth.pop();
 		}
 	}
 
