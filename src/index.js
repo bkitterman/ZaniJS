@@ -28,7 +28,10 @@ async function main() {
 		 value: {$gt: 0}
 	},
 	{
-		value: 1, _id: 0
+		value: 1
+	},
+	{
+		value: -1
 	});
 	console.log(results);
 

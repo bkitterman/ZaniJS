@@ -952,8 +952,9 @@ class Zani {
 
 		const resultSet = this.findLogical(collection, query, indexedResults, nonIndexedResults);
 
-		// Handle projections
+		// Handle projections prior to reading
 		var projections = [];
+		//! Only can handle up to depth 1
 		if (project) {
 			// Extract projection keys, and add to array if desired to keep
 			Object.getOwnPropertyNames(project).forEach((element) => {
@@ -992,11 +993,30 @@ class Zani {
 		const readingTime = (Date.now()-start)/1000;
 		this.logger.log(`Reading entries complete in ${readingTime}`);
 
-		// Still need to figure out how to do group-by and aggregation.
-
+		//! Can only handle up to depth 1
 		if (sort) {
-			const sortParam = Object.getOwnPropertyNames(sort);
-			// Rearrange results to match
+			results = results.sort((a, b) => {
+				for(const key in sort) {
+					// Ascending
+					if(sort[key] === 1) {
+						if(a.hasOwnProperty(key) && b.hasOwnProperty(key)) {
+							if(a[key] < b[key]) return -1;
+							if(a[key] > b[key]) return 1;
+						}
+						if(a.hasOwnProperty(key)) return 1;
+						if(b.hasOwnProperty(key)) return -1;
+					}
+					// Descending
+					if(a.hasOwnProperty(key) && b.hasOwnProperty(key)) {
+						if(a[key] < b[key]) return 1;
+						if(a[key] > b[key]) return -1;
+					}
+					if(a.hasOwnProperty(key)) return -1;
+					if(b.hasOwnProperty(key)) return 1;
+					
+					return 0;
+				}
+			});
 		}
 
 		// if smart indexing is enabled, check through here.
