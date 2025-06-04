@@ -10,7 +10,7 @@ const BPlusTree = require('./bPlusTree');
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
 
-var db = new Zani('Test', { fileLimit: 1000 });
+var db = new Zani('Test', { fileLimit: 100 });
 main();
 
 async function main() {
@@ -24,11 +24,14 @@ async function main() {
 	- Query check, making sure things are used properly rather than just 'where they fit'
 	- Test object nesting with more defined data. works as is now in non-indexed files
 	*/
-	await db.find('Testing', {
-		$not: {
-			value: {$lt: 11950}
-		}
+	const results = await db.find('Testing', {
+		 value: {$gt: 0}
+	},
+	{
+		value: 1, _id: 0
 	});
+	console.log(results);
+
 	//db.findNonIndexedText('%test%test2___test3%', '', '', '');
 }
 

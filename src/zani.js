@@ -889,7 +889,8 @@ class Zani {
 	 * @returns {object[]} The results of the query
 	 */
 	async find(collection, query, project, sort) {
-		this.logger.log('Smart search method. Not built at this time.');
+		this.logger.log(`Starting query of ${collection}`);
+		const start = Date.now();
 
 		// Check if system is ready
 		if (!this.checkForCollection(collection)) return;
@@ -921,7 +922,6 @@ class Zani {
 		console.log('\nQuery - Not Indexed');
 		console.log(queries.notIndexed);
 		console.groupEnd();
-
 		/* 
 		Two queries in parallel, replace the query object 'conditions' with the results
 		Do $and, $not, $or here by referencing the two since they share the same structure
@@ -950,24 +950,11 @@ class Zani {
 			this.findFromNonIndexed(collection, queries.notIndexed),
 		]);
 
-		// Go through results here.
-		console.group('----------------------- Results -----------------------');
-		console.log(query);
-		console.log(indexedResults);
-		console.log(nonIndexedResults);
+		const resultSet = this.findLogical(collection, query, indexedResults, nonIndexedResults);
 
-		results = this.findLogical(collection, query, indexedResults, nonIndexedResults);
-
-		console.log(results);
-		return;
-
-		// Still need to figure out how to do group-by and aggregation.
-		// Handle projection, sorting here.
-
-		// If a projection value was passed, align results to match
+		// Handle projections
+		var projections = [];
 		if (project) {
-			var projections = [];
-
 			// Extract projection keys, and add to array if desired to keep
 			Object.getOwnPropertyNames(project).forEach((element) => {
 				if (project[element] === 1) {
@@ -977,23 +964,35 @@ class Zani {
 
 			// Default return of _id
 			if (!project.hasOwnProperty('_id')) projections.push('_id');
+		}
 
-			// Match results to desired projection
-			results.forEach((element) => {
+		// Build results array
+		this.logger.log(`Reading entries from query`);
+		const readingStart = Date.now();
+		const resultSize = resultSet.size;
+		const setIterator = resultSet[Symbol.iterator]();
+		for(let i = 0; i<resultSize; i++) {
+			await this.semaphore.acquire();
+			var element = await this.getEntryAsync(collection, setIterator.next().value);
+			this.semaphore.release();
+
+			// For projections
+			if(projections.length > 0) {
 				for (const key in element) {
 					if (!projections.includes(key)) {
 						delete element[key];
-
-						// If it was the last key in element, remove
-						if (Object.keys(element).length === 0)
-							results = results.filter((arrElement) => arrElement !== element);
 					}
 				}
-			});
+			}
+			// If it was the last key in element, remove by not adding it to array
+			if (Object.keys(element).length !== 0)
+				results.push(element);
 		}
 
-		// Deduplication
-		//results = this.deduplicateResults(results);
+		const readingTime = (Date.now()-start)/1000;
+		this.logger.log(`Reading entries complete in ${readingTime}`);
+
+		// Still need to figure out how to do group-by and aggregation.
 
 		if (sort) {
 			const sortParam = Object.getOwnPropertyNames(sort);
@@ -1002,7 +1001,9 @@ class Zani {
 
 		// if smart indexing is enabled, check through here.
 
-		this.logger.log('Query Complete', this.databaseName);
+		const end = Date.now();
+		const totalTime = (end-start)/1000;
+		this.logger.log(`Query complete in ${totalTime} seconds`, this.databaseName);
 		return results;
 	}
 
@@ -2076,7 +2077,7 @@ class Zani {
 		this.prepareResultsObject(results);
 
 		this.findLogicalRouter(query, results, indexedResults, nonIndexedResults, undefined, collection);
-		results = this.findLogicalFinal(results);
+		results = this.findLogicalFinal(results, indexedResults, nonIndexedResults);
 
 		const end = Date.now();
 		const totalTime = (end - start) / 1000;
@@ -2406,17 +2407,33 @@ class Zani {
 		return;
 	}
 
-	/** Perform the final AND operation on the results object, and return the final set. This method can only
+	/** Perform the final AND operation on the three result objects, and return the final set. This method can only
 	 * be called after results is entirely down to a single layer. 
 	 * 
 	 * @param {object} results - The results object
+	 * @param {object} indexedResults - The indexed results object
+	 * @param {object} nonIndexedResults - The non indexed results object
 	 * @returns {Set} - The condensed results
 	 */
-	findLogicalFinal(results) {
+	findLogicalFinal(results, indexedResults, nonIndexedResults) {
 		var individualResults = [];
 		for(const key in results) {
-			individualResults.push(results[key]);
+			if(results[key] instanceof Set && results[key].size !== 0) {
+				individualResults.push(results[key]);
+				continue;
+			}
+			
+			if(indexedResults[key] instanceof Set) {
+				individualResults.push(indexedResults[key]);
+				continue;
+			}
+
+			if(nonIndexedResults[key] instanceof Set) {
+				individualResults.push(nonIndexedResults[key]);
+				continue;
+			}
 		}
+		
 		
 		if(individualResults.length < 1) {
 			results = individualResults[0];
@@ -2473,14 +2490,16 @@ class Zani {
 		return individualResults;
 	}
 
-	//TODO count methods
-	/*
-	! must be used as 
-	* { $count: {
-	* 		project: string (What it will be attributed as)
-	* 		query: {...}
-	* }
-	*/
+	findCount() {
+		//TODO count methods
+		/*
+		! must be used as 
+		* { $count: {
+		* 		project: string (What it will be attributed as)
+		* 		query: {...}
+		* }
+		*/
+	}
 
 	/* -------------------------------------------------------------------------- */
 	/*                               Helper Methods                               */
