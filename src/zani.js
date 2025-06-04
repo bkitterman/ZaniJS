@@ -956,6 +956,9 @@ class Zani {
 		console.log(indexedResults);
 		console.log(nonIndexedResults);
 
+		results = this.findLogical(collection, query, indexedResults, nonIndexedResults);
+
+		console.log(results);
 		return;
 
 		// Still need to figure out how to do group-by and aggregation.
@@ -1136,22 +1139,22 @@ class Zani {
 		},
 
 		logical: {
-			$and: this.findAnd.bind(this),
-			$or: this.findOr.bind(this),
-			$not: this.findNot.bind(this),
-			$nand: this.findNand.bind(this),
-			$nor: this.findNor.bind(this),
-			$xor: this.findXor.bind(this),
+			$and: this.findLogicalAnd.bind(this),
+			$or: this.findLogicalOr.bind(this),
+			$not: this.findLogicalNot.bind(this),
+			$nand: this.findLogicalNand.bind(this),
+			$nor: this.findLogicalNor.bind(this),
+			$xor: this.findLogicalXor.bind(this),
 			$count: this.findCount.bind(this),
 		},
 	};
 
 	/* ------------------------- Query (Indexed) Methods ------------------------ */
 
-	/** Search a collection by apply a query criteria, and checking all appropriate entries based on file indexes. 
-	 * All entries that match will be added to their respective results object value, which contains attributes 
+	/** Search a collection by apply a query criteria, and checking all appropriate entries based on file indexes.
+	 * All entries that match will be added to their respective results object value, which contains attributes
 	 * tracking where each entry passed for later processing within {@link Zani#find}.
-	 * 
+	 *
 	 * Note: Any files missing from the index attributes will be assumed to be non-existent, or at minimum, lacking
 	 * the indexed attribute.
 	 *
@@ -1182,7 +1185,7 @@ class Zani {
 
 	/** Given a criteria, route all queries to proper method and construct the results object. This method is
 	 * called from and will return to {@link Zani#findIndexed}. This method is recursive and will be called
-	 * for every $queryOperator or nested object within the query. 
+	 * for every $queryOperator or nested object within the query.
 	 *
 	 * @see {@link Zani#find}
 	 * @see {@link Zani#findIndexed}
@@ -1209,14 +1212,14 @@ class Zani {
 				this.findIndexedEqual(collection, query[key], results, depth);
 			}
 
-			if (!key.charAt(0) === '$') depth.entry.pop();
+			if (key.charAt(0) !== '$') depth.entry.pop();
 			depth.query.pop();
 		}
 	}
 
 	/** Greater than ($gt) search for indexed attributes/collections.
 	 *
-	 * Search the entry provided for values greater than the query's value, based on indexed values. 
+	 * Search the entry provided for values greater than the query's value, based on indexed values.
 	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
 	 *
 	 * See query documentation for usage.
@@ -1247,7 +1250,7 @@ class Zani {
 
 	/** Greater than or equal to ($gte) search for indexed attributes/collections.
 	 *
-	 * Search the entry provided for values greater than or equal to the query's value, based on indexed values. 
+	 * Search the entry provided for values greater than or equal to the query's value, based on indexed values.
 	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
 	 *
 	 * See query documentation for usage.
@@ -1278,7 +1281,7 @@ class Zani {
 
 	/** Less than ($lt) search for indexed attributes/collections.
 	 *
-	 * Search the entry provided for values less than the query's value, based on indexed values. 
+	 * Search the entry provided for values less than the query's value, based on indexed values.
 	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
 	 *
 	 * See query documentation for usage.
@@ -1309,7 +1312,7 @@ class Zani {
 
 	/** Less than equal to ($lte) search for indexed attributes/collections.
 	 *
-	 * Search the entry provided for values less than or equal to the query's value, based on indexed values. 
+	 * Search the entry provided for values less than or equal to the query's value, based on indexed values.
 	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
 	 *
 	 * See query documentation for usage.
@@ -1340,7 +1343,7 @@ class Zani {
 
 	/** Equal to ($eq) search for indexed attributes/collections.
 	 *
-	 * Search the entry provided for values equal to the query's value, based on indexed values. 
+	 * Search the entry provided for values equal to the query's value, based on indexed values.
 	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
 	 *
 	 * See query documentation for usage.
@@ -1368,7 +1371,7 @@ class Zani {
 
 	/** Not Equal to ($ne) search for indexed attributes/collections.
 	 *
-	 * Search the entry provided for values not equal to the query's value, based on indexed values. 
+	 * Search the entry provided for values not equal to the query's value, based on indexed values.
 	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
 	 *
 	 * See query documentation for usage.
@@ -1376,7 +1379,7 @@ class Zani {
 	 * @example
 	 * query: {value: {$ne: 3}}
 	 * results: any entry with attribute value not equal to 3.
-	 * 
+	 *
 	 * @see {@link Zani#findIndexed}
 	 * @see {@link Zani#findIndexedRouter}
 	 *
@@ -1400,7 +1403,7 @@ class Zani {
 
 	/** In ($in) search for indexed attributes/collections.
 	 *
-	 * Search the entry provided for values contained within query's array of values, based on indexed values. 
+	 * Search the entry provided for values contained within query's array of values, based on indexed values.
 	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}..
 	 *
 	 * See query documentation for usage.
@@ -1433,7 +1436,7 @@ class Zani {
 
 	/** Not In ($nin) search for indexed attributes/collections.
 	 *
-	 * Search the entry provided for values not contained within query's array of values, based on indexed values. 
+	 * Search the entry provided for values not contained within query's array of values, based on indexed values.
 	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}..
 	 *
 	 * See query documentation for usage.
@@ -1470,7 +1473,7 @@ class Zani {
 
 	/** Exists ($exists) search for indexed attributes/collections.
 	 *
-	 * Search the entry provided for an attributes presence, based on indexed values. 
+	 * Search the entry provided for an attributes presence, based on indexed values.
 	 * This method should only be called from the indexed router method {@link Zani#findIndexedRouter}.
 	 *
 	 * See query documentation for usage.
@@ -1492,26 +1495,26 @@ class Zani {
 		const tree = new BPlusTree(this.getIndexPath(collection, depth.entry));
 
 		var resultIndexes = new Set();
-		if(query) {
+		if (query) {
 			resultIndexes = new Set(tree.getRange(-Infinity, Infinity));
 		} else {
 			var validIndexes = new Set(tree.getRange(-Infinity, Infinity));
 			var collectionSize = this.getCollectionSize(collection);
 
-			for(let i = 0; i<collectionSize; i++) {
-				if(validIndexes.has(i)) continue;
-				if(this.meta.collections[collection].availableIDs.includes(i)) continue;
+			for (let i = 0; i < collectionSize; i++) {
+				if (validIndexes.has(i)) continue;
+				if (this.meta.collections[collection].availableIDs.includes(i)) continue;
 
 				resultIndexes.add(i);
 			}
 		}
 
 		this.pushToAttributeSet(results, depth.query, [...resultIndexes]);
-		
+
 		return;
 	}
 
-	/* ---------------------- Query (Non-Indexed) Methods) ---------------------- */
+	/* ----------------------- Query (Non-Indexed) Methods ---------------------- */
 
 	/** Search a collection, entry by entry, and apply a query criteria to each. All entries that match
 	 * will be added to their respective results object value, which contains attributes tracking where each
@@ -1589,7 +1592,7 @@ class Zani {
 				this.findNonIndexedEqual(query[key], entry, results, depth);
 			}
 
-			if (!key.charAt(0) === '$') depth.entry.pop();
+			if (key.charAt(0) !== '$') depth.entry.pop();
 			depth.query.pop();
 		}
 	}
@@ -1698,9 +1701,9 @@ class Zani {
 	 * @param {object} results - The results storage object, which any matching entries will be added to.
 	 */
 	findNonIndexedLessThanEqual(query, entry, results, depth) {
-		this.logger.log(
-			`Less than equal to for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`,
-		);
+		// this.logger.log(
+		// 	`Less than equal to for non-indexed at ${depth.entry}, Q:${query} - E._id:${entry._id}`,
+		// );
 
 		const value = this.getObjectAttribute(entry, depth.entry);
 		if (query >= value) {
@@ -1843,7 +1846,7 @@ class Zani {
 
 		// Build search object criteria
 		var value = this.getObjectAttribute(entry, depth.entry);
-		if(typeof value !== 'string') return;
+		if (typeof value !== 'string') return;
 
 		let search = [];
 
@@ -2050,559 +2053,434 @@ class Zani {
 		}
 	}
 
-	/* ------------------------------- deprecated ------------------------------- */
+	/* ------------------------- Query (Logical) Methods ------------------------ */
 
-	/** Given a criteria, route all queries to proper method and construct the results array. This method is called from
-	 * and will return to {@link Zani#find}. This method is recursive and will be called for every $queryOperator.
+	/** Given three result objects (indexed, nonIndexed, results), complete any remaining logical operations
+	 * defined by the query object, reduce the three objects into a single object recursively, and return this 
+	 * object as a final results set, which carries entry IDs that will be used within {@link Zani#find} to 
+	 * build the query result array of entries.
 	 *
-	 * @see {@link Zani#queryOperators}
-	 * @see {@link Zani#find}
+	 * This method only works after both queries are completed. These objects can be empty. 
 	 *
-	 * @param {string} collection - The collection to search
-	 * @param {object} criteria - The search query
-	 * @param {string=} attribute - The calling attribute, if present.
-	 *
-	 * @returns {object[]}
+	 * @param {string} collection - The name of the collection to search
+	 * @param {object} query - The criteria to apply to each entry
+	 * @param {object} indexedResults - The results of the indexed query built by {@link Zani#findIndexed}.
+	 * @param {object} nonIndexedResults - The results of the non indexed query built by {@link Zani#findNonIndexed}
+	 * @returns {Set} - The results set.
 	 */
-	findRouter(collection, attribute, criteria) {
-		var results = [];
-		const searchParameters = Object.getOwnPropertyNames(criteria);
+	findLogical(collection, query, indexedResults, nonIndexedResults) {
+		this.logger.log(`Starting Logical operations or results`, this.databaseName);
+		const start = Date.now();
 
-		for (const element of searchParameters) {
-			if (element.charAt(0) === '$') {
-				results.push(...this.queryOperators[element](collection, attribute, criteria[element]));
-			} else if (typeof criteria[element] === 'object' && !Array.isArray(criteria[element])) {
-				results.push(...this.findAnd(collection, element, criteria[element]));
+		var results = structuredClone(query);
+		this.prepareResultsObject(results);
+
+		this.findLogicalRouter(query, results, indexedResults, nonIndexedResults, undefined, collection);
+		results = this.findLogicalFinal(results);
+
+		const end = Date.now();
+		const totalTime = (end - start) / 1000;
+
+		this.logger.log(`Logical operations completed in ${totalTime} seconds`, this.databaseName);
+		return results;
+	}
+
+	/** Given a criteria, route all queries to proper method and construct the final results object. This method is
+	 * called from and will return to {@link Zani#findLogical}. This method is recursive and will be called
+	 * for every $queryOperator or nested object within the entry.
+	 *
+	 * @see {@link Zani#find}
+	 * @see {@link Zani#findLogical}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 * @param {object} indexedResults - The results of the indexed query built by {@link Zani#findIndexed}.
+	 * @param {object} nonIndexedResults - The results of the non indexed query built by {@link Zani#findNonIndexed}
+	 * @param {object} depth - The variable tracking the current object depth, and attribute path (unflattened)
+	 * @param {string} collection - The name of the collection to search
+	 */
+	findLogicalRouter(query, results,indexedResults,nonIndexedResults,depth = { entry: [], query: [] }, collection) {
+		for (const key in query) {
+			if (key.charAt(0) !== '$') depth.entry.push(key);
+			depth.query.push(key);
+
+			let attributeValue = this.getAttributeDataType(query[key]);
+
+			if (attributeValue === 'object') {
+				this.findLogicalRouter(query[key], results, indexedResults, nonIndexedResults, depth, collection);
+				if (key.charAt(0) === '$' && this.queryOperators.logical.hasOwnProperty(key)) {
+					this.queryOperators.logical[key](
+						query[key],
+						results,
+						indexedResults,
+						nonIndexedResults,
+						depth,
+						collection,
+					);
+				} else {
+					this.findLogicalAnd(query[key], results, indexedResults, nonIndexedResults, depth);
+				}
 			} else {
-				// TODO make this more efficient, right now it passes over everything n times where n = criteria props.
-				// 		Combine all non $ params and have it iterate 1 time over everything and compare each to all
-				results.push(...this.findEqual(collection, element, criteria[element]));
+				this.findLogicalAnd(query[key], results, indexedResults, nonIndexedResults, depth);
 			}
-		}
 
-		return results;
+			if (key.charAt(0) !== '$') depth.entry.pop();
+			depth.query.pop();
+		}
 	}
 
-	/* ---------------------------- Value comparison ---------------------------- */
-	/** Search the collection provided for greater than via the attribute, compared to the value. and
-	 * returned to {@link Zani#find} for projection, grouping, and sorting as needed. If it was part of a compound search
-	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
+	/** Logical AND ($and) operation for result objects/sets.
 	 *
-	 * @see {@link Zani#find}
-	 * @see {@link Zani#findRouter}
+	 * Compute a logical and between the three result objects at the attribute defined by depth.query.
+	 * This method should only be called from the non-indexed router method {@link Zani#findLogicalRouter}.
 	 *
-	 * @param {string} collection - The name of the collection
-	 * @param {string} attribute The attribute name to have the comparison performed on
-	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
+	 * See query documentation for usage.
 	 *
-	 * @returns {object[]}
+	 * @example
+	 * query: {
+	 * 	$and: {value: 3, foo: "bar"}
+	 * }
+	 * results: any entry with attribute value equal to 3 and attribute foo equal to "bar"
+	 *
+	 * @see {@link Zani#findLogical}
+	 * @see {@link Zani#findLogicalRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 * @param {object} indexedResults - The results of the indexed query built by {@link Zani#findIndexed}.
+	 * @param {object} nonIndexedResults - The results of the non indexed query built by {@link Zani#findNonIndexed}
+	 * @param {object} depth - The variable tracking the current object depth, and attribute path (unflattened)
 	 */
-	findGreaterThan(collection, attribute, value) {
-		this.logger.log(`Greater than ${value} for ${attribute}`, this.databaseName);
+	findLogicalAnd(query, results, indexedResults, nonIndexedResults, depth) {
+		this.logger.log(`Logical and for ${depth.entry}`, this.databaseName);
 
-		var results = [];
+		var individualResults = this.extractResults(query, results, indexedResults, nonIndexedResults, depth);
+
+		if (individualResults.length === 0) return;
+
+		var finalResults = individualResults[0];
+		for (let i = 1; i < individualResults.length; i++) {
+			finalResults = this.setIntersection(finalResults, individualResults[i]);
+		}
+
+		this.setObjectAttribute(results, depth.query, finalResults);
+		return;
+	}
+
+	/** Logical NAND ($nand) operation for result objects/sets.
+	 *
+	 * Compute a logical nand between the three result objects at the attribute defined by depth.query.
+	 * This method should only be called from the non-indexed router method {@link Zani#findLogicalRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {
+	 * 	$nand: {value: 3, foo: "bar"}
+	 * }
+	 * results: any entry with attribute value not equal to 3 or attribute foo not equal to "bar"
+	 *
+	 * @see {@link Zani#findLogical}
+	 * @see {@link Zani#findLogicalRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 * @param {object} indexedResults - The results of the indexed query built by {@link Zani#findIndexed}.
+	 * @param {object} nonIndexedResults - The results of the non indexed query built by {@link Zani#findNonIndexed}
+	 * @param {object} depth - The variable tracking the current object depth, and attribute path (unflattened)
+	 * @param {string} collection - The name of the collection to search
+	 */
+	findLogicalNand(query, results, indexedResults, nonIndexedResults, depth, collection) {
+		this.logger.log(`Logical nand for ${depth.entry}`, this.databaseName);
+
+		var individualResults = this.extractResults(query, results, indexedResults, nonIndexedResults, depth);
+
+		if (individualResults.length === 0) return;
+
+		// Perform and operation
+		var invalidIndexes = individualResults[0];
+		for (let i = 1; i < individualResults.length; i++) {
+			invalidIndexes = this.setIntersection(invalidIndexes, individualResults[i]);
+		}
+
+		// Create set of all possible indexes
 		const collectionSize = this.getCollectionSize(collection);
+		var validIndexes = new Set();
+		for(let i = 0; i < collectionSize; i++) 
+			validIndexes.add(i);
 
-		// Read through entire collection, search for results
-		for (var i = 1; i <= collectionSize; i++) {
-			var entry = this.getEntry(collection, i);
-			entry = JSON.parse(entry);
+		// Remove missing entry ids
+		for(const element of this.meta.collections[collection].availableIDs) 
+			validIndexes.delete(element);
 
-			// If entry has attribute, compare. If conditions met, add to results array.
-			if (entry.hasOwnProperty(attribute)) {
-				if (entry[attribute] > value) results.push(entry);
-			}
-		}
+		// Perform not operation
+		var finalResults = this.setDifference(validIndexes, invalidIndexes);
 
-		return results;
+		this.setObjectAttribute(results, depth.query, finalResults);
+		return;
 	}
 
-	/** Search the collection provided for greater than equal to via the attribute, compared to the value. and
-	 * returned to {@link Zani#find} for projection, grouping, and sorting as needed. If it was part of a compound search
-	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
+	/** Logical OR ($or) operation for result objects/sets.
 	 *
-	 * @see {@link Zani#find}
-	 * @see {@link Zani#findRouter}
+	 * Compute a logical or between the three result objects at the attribute defined by depth.query.
+	 * This method should only be called from the non-indexed router method {@link Zani#findLogicalRouter}.
 	 *
-	 * @param {string} collection - The name of the collection
-	 * @param {string} attribute The attribute name to have the comparison performed on
-	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
+	 * See query documentation for usage.
 	 *
-	 * @returns {object[]}
+	 * @example
+	 * query: {
+	 * 	$or: {value: 3, foo: "bar"}
+	 * }
+	 * results: any entry with attribute value equal to 3 or attribute foo equal to "bar"
+	 *
+	 * @see {@link Zani#findLogical}
+	 * @see {@link Zani#findLogicalRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 * @param {object} indexedResults - The results of the indexed query built by {@link Zani#findIndexed}.
+	 * @param {object} nonIndexedResults - The results of the non indexed query built by {@link Zani#findNonIndexed}
+	 * @param {object} depth - The variable tracking the current object depth, and attribute path (unflattened)
 	 */
-	findGreaterThanEqual(collection, attribute, value) {
-		this.logger.log(`Greater than equal to ${value} for ${attribute}`, this.databaseName);
+	findLogicalOr(query, results, indexedResults, nonIndexedResults, depth) {
+		this.logger.log(`Logical or for ${depth.entry}`, this.databaseName);
 
-		var results = [];
+		var individualResults = this.extractResults(query, results, indexedResults, nonIndexedResults, depth);
+
+		if (individualResults.length === 0) return;
+
+		var finalResults = individualResults[0];
+		for (let i = 1; i < individualResults.length; i++) {
+			finalResults = this.setUnion(finalResults, individualResults[i]);
+		}
+
+		this.setObjectAttribute(results, depth.query, finalResults);
+		return;
+	}
+
+	/** Logical NOR ($nor) operation for result objects/sets.
+	 *
+	 * Compute a logical nor between the three result objects at the attribute defined by depth.query.
+	 * This method should only be called from the non-indexed router method {@link Zani#findLogicalRouter}.
+	 *
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {
+	 * 	$nor: {value: 3, foo: "bar"}
+	 * }
+	 * results: any entry with attribute value not equal to 3 and attribute foo not equal to "bar"
+	 *
+	 * @see {@link Zani#findLogical}
+	 * @see {@link Zani#findLogicalRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 * @param {object} indexedResults - The results of the indexed query built by {@link Zani#findIndexed}.
+	 * @param {object} nonIndexedResults - The results of the non indexed query built by {@link Zani#findNonIndexed}
+	 * @param {object} depth - The variable tracking the current object depth, and attribute path (unflattened)
+	 * @param {string} collection - The name of the collection to search
+	 */
+	findLogicalNor(query, results, indexedResults, nonIndexedResults, depth, collection) {
+		this.logger.log(`Logical nor for ${depth.entry}`, this.databaseName);
+
+		var individualResults = this.extractResults(query, results, indexedResults, nonIndexedResults, depth);
+
+		if (individualResults.length === 0) return;
+
+		// Perform or operation
+		var invalidIndexes = individualResults[0];
+		for (let i = 1; i < individualResults.length; i++) {
+			invalidIndexes = this.setUnion(invalidIndexes, individualResults[i]);
+		}
+
+		// Create set of all possible indexes
 		const collectionSize = this.getCollectionSize(collection);
+		var validIndexes = new Set();
+		for(let i = 0; i < collectionSize; i++) 
+			validIndexes.add(i);
 
-		// Read through entire collection, search for results
-		for (var i = 1; i <= collectionSize; i++) {
-			var entry = this.getEntry(collection, i);
-			entry = JSON.parse(entry);
+		// Remove missing entry ids
+		for(const element of this.meta.collections[collection].availableIDs) 
+			validIndexes.delete(element);
 
-			// If entry has attribute, compare. If conditions met, add to results array.
-			if (entry.hasOwnProperty(attribute)) {
-				if (entry[attribute] >= value) results.push(entry);
-			}
-		}
+		// Perform not operation
+		var finalResults = this.setDifference(validIndexes, invalidIndexes);
 
-		return results;
+		this.setObjectAttribute(results, depth.query, finalResults);
+		return;
 	}
 
-	/** Search the collection provided for less than via the attribute, compared to the value. and
-	 * returned to {@link Zani#find} for projection, grouping, and sorting as needed. If it was part of a compound search
-	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
+	/** Logical XOR ($xor) operation for result objects/sets.
 	 *
-	 * @see {@link Zani#find}
-	 * @see {@link Zani#findRouter}
+	 * Compute a logical xor between the three result objects at the attribute defined by depth.query.
+	 * This method should only be called from the non-indexed router method {@link Zani#findLogicalRouter}.
 	 *
-	 * @param {string} collection - The name of the collection
-	 * @param {string} attribute The attribute name to have the comparison performed on
-	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
+	 * See query documentation for usage.
 	 *
-	 * @returns {object[]}
+	 * @example
+	 * query: {
+	 * 	$xor: {value: 3, foo: "bar"}
+	 * }
+	 * results: any entry with attribute value equal to 3 or attribute foo equal to "bar", but not entries where
+	 * value is equal to 3 and foo is equal to 'bar', or entries where value is not equal to 3 and foo is not
+	 * equal to 'bar'
+	 *
+	 * @see {@link Zani#findLogical}
+	 * @see {@link Zani#findLogicalRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 * @param {object} indexedResults - The results of the indexed query built by {@link Zani#findIndexed}.
+	 * @param {object} nonIndexedResults - The results of the non indexed query built by {@link Zani#findNonIndexed}
+	 * @param {object} depth - The variable tracking the current object depth, and attribute path (unflattened)
 	 */
-	findLessThan(collection, attribute, value) {
-		this.logger.log(`Less than ${value} for ${attribute}`, this.databaseName);
+	findLogicalXor(query, results, indexedResults, nonIndexedResults, depth) {
+		this.logger.log(`Logical Xor for ${depth.entry}`, this.databaseName);
 
-		var results = [];
+		var individualResults = this.extractResults(query, results, indexedResults, nonIndexedResults, depth);
+
+		if (individualResults.length === 0) return;
+
+		var finalResults = individualResults[0];
+		for (let i = 1; i < individualResults.length; i++) {
+			finalResults = this.setSymmetricDifference(finalResults, individualResults[i]);
+		}
+
+		this.setObjectAttribute(results, depth.query, finalResults);
+		return;
+	}
+
+	/** Logical NOT ($not) operation for result objects/sets.
+	 *
+	 * Compute a logical not between the three result objects at the attribute defined by depth.query.
+	 * This method should only be called from the non-indexed router method {@link Zani#findLogicalRouter}.
+	 *
+	 * Note: If more than one attribute is passed/set between the three objects, a logical NAND is performed.
+	 * 
+	 * See query documentation for usage.
+	 *
+	 * @example
+	 * query: {
+	 * 	$not: {value: 3}
+	 * }
+	 * results: any entry with attribute value not equal to 3
+	 *
+	 * @see {@link Zani#findLogical}
+	 * @see {@link Zani#findLogicalRouter}
+	 *
+	 * @param {any} query - The value of the entry to compare to
+	 * @param {object} results - The results storage object, which any matching entries will be added to.
+	 * @param {object} indexedResults - The results of the indexed query built by {@link Zani#findIndexed}.
+	 * @param {object} nonIndexedResults - The results of the non indexed query built by {@link Zani#findNonIndexed}
+	 * @param {object} depth - The variable tracking the current object depth, and attribute path (unflattened)
+	 * @param {string} collection - The name of the collection to search
+	 */
+	findLogicalNot(query, results, indexedResults, nonIndexedResults, depth, collection) {
+		this.logger.log(`Logical not for ${depth.entry}`, this.databaseName);
+
+		var individualResults = this.extractResults(query, results, indexedResults, nonIndexedResults, depth);
+
+		if (individualResults.length === 0) return;
+		if (individualResults.length !== 1) {
+			// Perform and operation
+			for (let i = 1; i < individualResults.length; i++) {
+				individualResults[0] = this.setIntersection(individualResults[0], individualResults[i]);
+			}
+		};
+
+		// Create set of all possible indexes
 		const collectionSize = this.getCollectionSize(collection);
+		var validIndexes = new Set();
+		for(let i = 0; i < collectionSize; i++) 
+			validIndexes.add(i);
 
-		// Read through entire collection, search for results
-		for (var i = 1; i <= collectionSize; i++) {
-			var entry = this.getEntry(collection, i);
-			entry = JSON.parse(entry);
+		// Remove missing entry ids
+		for(const element of this.meta.collections[collection].availableIDs) 
+			validIndexes.delete(element);
 
-			// If entry has attribute, compare. If conditions met, add to results array.
-			if (entry.hasOwnProperty(attribute)) {
-				if (entry[attribute] < value) results.push(entry);
-			}
-		}
+		// Perform not operation
+		var finalResults = this.setDifference(validIndexes, individualResults[0]);
 
-		return results;
+		this.setObjectAttribute(results, depth.query, finalResults);
+		return;
 	}
 
-	/** Search the collection provided for less than equal to via the attribute, compared to the value. and
-	 * returned to {@link Zani#find} for projection, grouping, and sorting as needed. If it was part of a compound search
-	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
-	 *
-	 * @see {@link Zani#find}
-	 * @see {@link Zani#findRouter}
-	 *
-	 * @param {string} collection - The name of the collection
-	 * @param {string} attribute The attribute name to have the comparison performed on
-	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
-	 *
-	 * @returns {object[]}
+	/** Perform the final AND operation on the results object, and return the final set. This method can only
+	 * be called after results is entirely down to a single layer. 
+	 * 
+	 * @param {object} results - The results object
+	 * @returns {Set} - The condensed results
 	 */
-	findLessThanEqual(collection, attribute, value) {
-		this.logger.log(`Less than equal to ${value} for ${attribute}`, this.databaseName);
-
-		var results = [];
-		const collectionSize = this.getCollectionSize(collection);
-
-		// Read through entire collection, search for results
-		for (var i = 1; i <= collectionSize; i++) {
-			var entry = this.getEntry(collection, i);
-			entry = JSON.parse(entry);
-
-			// If entry has attribute, compare. If conditions met, add to results array.
-			if (entry.hasOwnProperty(attribute)) {
-				if (entry[attribute] <= value) results.push(entry);
-			}
+	findLogicalFinal(results) {
+		var individualResults = [];
+		for(const key in results) {
+			individualResults.push(results[key]);
+		}
+		
+		if(individualResults.length < 1) {
+			results = individualResults[0];
+			return;
 		}
 
+		var results = individualResults[0];
+		for (let i = 1; i < individualResults.length; i++) {
+			results = this.setIntersection(results, individualResults[i]);
+		}
 		return results;
 	}
 
-	/** Search the collection provided for equality via the attribute, compared to the value. and
-	 * returned to {@link Zani#find} for projection, grouping, and sorting as needed. If it was part of a compound search
-	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
-	 *
-	 * @see {@link Zani#find}
-	 * @see {@link Zani#findRouter}
-	 *
-	 * @param {string} collection - The name of the collection
-	 * @param {string} attribute The attribute name to have the comparison performed on
-	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
-	 *
-	 * @returns {object[]}
+	/** Returns all results from an object as an array at a specified depth. All entries in this array
+	 * will be set objects of length 0 or greater. This method also truncates any objects if a set is extracted
+	 * to remove that attribute to reduce memory footprint.
+	 * 
+	 * @param {object} query - The query object
+	 * @param {object} results - The results object
+	 * @param {object} indexedResults - The indexed query results
+	 * @param {object} nonIndexedResults - The non indexed query results
+	 * @param {object} depth - The depth object carrying entry and query attributes
+	 * @returns {Set[]} - The gathered results.
 	 */
-	findEqual(collection, attribute, value) {
-		this.logger.log(`Equal to ${value} for ${attribute}`, this.databaseName);
-
-		var results = [];
-		var isArray = Array.isArray(value);
-		const collectionSize = this.getCollectionSize(collection);
-
-		// Read through entire collection, search for results
-		for (var i = 1; i <= collectionSize; i++) {
-			var entry = this.getEntry(collection, i);
-			entry = JSON.parse(entry);
-
-			// If entry has attribute, compare. If conditions met, add to results array.
-			if (entry.hasOwnProperty(attribute)) {
-				// If multiple values, compare all
-				if (isArray) {
-					if (value.includes(entry[attribute])) results.push(entry);
-					// If one value, compare
-				} else {
-					if (entry[attribute] === value) results.push(entry);
-				}
-			}
-		}
-
-		return results;
-	}
-
-	/** Search the collection provided for inequality via the attribute, compared to the value. and
-	 * returned to {@link Zani#find} for projection, grouping, and sorting as needed. If it was part of a compound search
-	 * using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
-	 *
-	 * @see {@link Zani#find}
-	 * @see {@link Zani#findRouter}
-	 *
-	 * @param {string} collection - The name of the collection
-	 * @param {string} attribute The attribute name to have the comparison performed on
-	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
-	 *
-	 * @returns {object[]}
-	 */
-	findNotEqual(collection, attribute, value) {
-		this.logger.log(`Not equal to ${value} for ${attribute}`, this.databaseName);
-
-		var results = [];
-		var isArray = Array.isArray(value);
-		const collectionSize = this.getCollectionSize(collection);
-
-		// Read through entire collection, search for results
-		for (var i = 1; i <= collectionSize; i++) {
-			var entry = this.getEntry(collection, i);
-			entry = JSON.parse(entry);
-
-			// If entry has attribute, compare. If conditions met, add to results array.
-			if (entry.hasOwnProperty(attribute)) {
-				// If multiple values, compare all
-				if (isArray) {
-					if (!value.includes(entry[attribute])) results.push(entry);
-					// If one value, compare
-				} else {
-					if (entry[attribute] != value) results.push(entry);
-				}
-			}
-		}
-
-		return results;
-	}
-
-	/* ---------------------------- Logical Operators --------------------------- */
-	/** Dispatch queries with a logical and intersection of the results. Each part of the query will be sent to
-	 * its corresponding method via {@link Zani#findRouter}, and return here. The results will then be
-	 * checked to ensure all values are within all results before returning just those values.
-	 *  If it was part of a compound search using a JSON object, such as $or or $and, it will be returned
-	 * to {@link Zani#findRouter} instead.
-	 *
-	 * @see {@link Zani#find}
-	 * @see {@link Zani#findRouter}
-	 *
-	 * @param {string} collection - The name of the collection
-	 * @param {string} attribute The attribute name to have the comparison performed on
-	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
-	 *
-	 * @returns {object[]}
-	 */
-	findAnd(collection, attribute, value) {
-		this.logger.log(`Logical and ${value} for ${attribute}`, this.databaseName);
-
-		var results = [];
-		var searchParameters = Object.getOwnPropertyNames(value);
-		var searchCount = searchParameters.length;
-		var queryCount = 0;
-
-		// Compile results from query, each query is individual row of 2d array
-		for (const element of searchParameters) {
-			if (element.charAt(0) === '$') {
-				results[queryCount] = this.queryOperators[element](collection, attribute, value[element]);
-			} else if (typeof value[element] === 'object' && !Array.isArray(value[element])) {
-				results[queryCount] = this.findAnd(collection, element, value[element]);
-			} else {
-				// TODO make this more efficient, right now it passes over everything n times where n = criteria props.
-				// 		Combine all non $ params and have it iterate 1 time over everything and compare each to all
-				results[queryCount] = this.findEqual(collection, element, value[element]);
-			}
-			queryCount++;
-		}
-
-		// if no results found, or only one row (one query), skip rest of method
-		if (results.length <= 1) return results[0];
-
-		// If attribute is provided, compare with that
-		if (attribute) {
-			// Start with elements from the first row
-			let commonValues = new Set(results[0].map((item) => item[attribute]));
-
-			// Check set for intersections
-			for (let i = 1; i < searchCount; i++) {
-				let currentRow = new Set(results[i].map((item) => item[attribute]));
-
-				// Keep only elements that are in both sets
-				commonValues = new Set([...commonValues].filter((val) => currentRow.has(val)));
-
-				// Early exit if there's nothing in common
-				if (commonValues.size === 0) break;
+	extractResults(query, results, indexedResults, nonIndexedResults, depth) {
+		var individualResults = [];
+		for (const key in query) {
+			const destination = [...depth.query, key];
+			
+			var extractedResults = this.getObjectAttribute(indexedResults, destination);
+			if(extractedResults instanceof Set) {
+				this.deleteObjectAttribute(indexedResults, destination);
+				individualResults.push(extractedResults);
+			
+				continue;
 			}
 
-			return results[0].filter((item) => commonValues.has(item[attribute]));
-		}
-
-		// If there is no attribute provided, check via object itself.
-		// Start with elements from the first row
-		let commonValues = new Set(results[0].map((item) => item));
-
-		// Check set for intersections
-		for (let i = 1; i < searchCount; i++) {
-			let currentRow = new Set(results[i].map((item) => item));
-
-			// Keep only elements that are in both sets
-			commonValues = new Set([...commonValues].filter((item) => this.isInArray(currentRow, item)));
-
-			// Early exit if there's nothing in common
-			if (commonValues.size === 0) break;
-		}
-		return results[0].filter((item) => this.isInArray(commonValues, item));
-	}
-
-	/** Dispatch queries with a logical or union of the results. Each part of the query will be sent to
-	 * its corresponding method via {@link Zani#findRouter}, and return here. The results will then be
-	 * checked for deduplication of all values and returned without removing any unique values. If it was part
-	 * of a compound search using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
-	 *
-	 * @see {@link Zani#find}
-	 * @see {@link Zani#findRouter}
-	 *
-	 * @param {string} collection - The name of the collection
-	 * @param {string} attribute The attribute name to have the comparison performed on
-	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
-	 *
-	 * @returns {object[]}
-	 */
-	findOr(collection, attribute, value) {
-		this.logger.log(`Logical or ${value} for ${attribute}`, this.databaseName);
-
-		var results = [];
-
-		// Can just append results all to single array. Then, de-duplicate.
-		results.push(...this.findRouter(collection, attribute, value));
-
-		// De-duplicate results
-		results = this.deduplicateResults(results);
-
-		return results;
-	}
-
-	/** Dispatch queries with a logical not union of the results. Each part of the query will be sent to
-	 * its corresponding method via {@link Zani#findRouter}, and return here. The results will then be deduplicated
-	 * before checking the entire collection and returning just those not appearing in the query. If it was part of a
-	 * compound search using a JSON object, such as $or or $and, it will be returned to {@link Zani#findRouter} instead.
-	 *
-	 * @see {@link Zani#find}
-	 * @see {@link Zani#findRouter}
-	 *
-	 * @param {string} collection - The name of the collection
-	 * @param {string} attribute The attribute name to have the comparison performed on
-	 * @param {*} value - The comparison value, which may be a JSON object for more advanced queries
-	 *
-	 * @returns {object[]}
-	 */
-	findNot(collection, attribute, value) {
-		this.logger.log(`Logical not ${value} for ${attribute}`, this.databaseName);
-
-		var results = [];
-		var notOperationResults = [];
-		const collectionSize = this.getCollectionSize(collection);
-
-		// Can just append results all to single array. Then, de-duplicate.
-		results.push(...this.findRouter(collection, attribute, value));
-
-		// De-duplicate results
-		results = this.deduplicateResults(results);
-
-		var resultCount = results.length;
-
-		// Check with collection and collection all non-results form query
-		for (let i = 1; i <= collectionSize; i++) {
-			let found = false;
-			let element = JSON.parse(this.getEntry(collection, i));
-
-			// Compare each entry in collection to results
-			for (let j = 0; j < resultCount; j++) {
-				if (this.compareObjects(results[j], element)) {
-					found = true;
-					break;
-				}
+			extractedResults = this.getObjectAttribute(nonIndexedResults, destination);
+			if(extractedResults instanceof Set) {
+				this.deleteObjectAttribute(nonIndexedResults, destination);
+				individualResults.push(extractedResults);
+			
+				continue;
 			}
 
-			// If entry not in results, append to return array
-			if (!found) {
-				notOperationResults.push(element);
-			}
+			extractedResults = this.getObjectAttribute(results, destination);
+			if(extractedResults instanceof Set) {		
+				individualResults.push(extractedResults);
+			
+				continue;
+			}			
 		}
 
-		return notOperationResults;
-	}
-
-	findNand(collection, attribute, value) {
-		this.logger.log(`Logical Nand ${value} for ${attribute}`, this.databaseName);
-
-		var results = [];
-		return results;
-	}
-
-	findNor(collection, attribute, value) {
-		this.logger.log(`Logical Nor ${value} for ${attribute}`, this.databaseName);
-
-		var results = [];
-		return results;
-	}
-
-	findXor(collection, attribute, value) {
-		this.logger.log(`Logical Xor ${value} for ${attribute}`, this.databaseName);
-
-		var results = [];
-		return results;
-	}
-
-	/* ----------------------- Arrays and Text Comparison ----------------------- */
-	findIn(collection, attribute, value) {
-		this.logger.log(`Array In ${value} for ${attribute}`, this.databaseName);
-
-		var results = [];
-		return results;
-	}
-
-	findNotIn(collection, attribute, value) {
-		this.logger.log(`Array Not In ${value} for ${attribute}`, this.databaseName);
-
-		var results = [];
-		return results;
-	}
-
-	findText(collection, attribute, value) {
-		this.logger.log(`Array Text ${value} for ${attribute}`, this.databaseName);
-
-		var results = [];
-		return results;
-	}
-
-	/* ---------------------------- Misc. Comparison ---------------------------- */
-	/** Search a collection for a all values that exist. To exist, a attribute must be present
-	 * in the entry and not be undefined, an array of length 0, or a empty object.
-	 *
-	 * @param {string} collection - The name of the collection
-	 * @param {string=} attribute - The calling attribute. It is unused as of now.
-	 * @param {string} value - The name of the attribute to check
-	 * @returns {object[]}
-	 */
-	findExists(collection, attribute, value) {
-		this.logger.log(`Exists ${value} for ${attribute}`, this.databaseName);
-
-		// Check if has attribute
-		// If string/bool/number, ensure not undefined
-		// Check if array, ensure not empty
-		// Check if object, ensure not empty
-		// Return all that match the above values
-
-		var results = [];
-		const collectionSize = this.getCollectionSize(collection);
-
-		// Read through entire collection, search for results
-		for (var i = 1; i <= collectionSize; i++) {
-			var entry = this.getEntry(collection, i);
-			entry = JSON.parse(entry);
-
-			// If entry has attribute, ensure not empty or undefined
-			if (entry.hasOwnProperty(value)) {
-				var checkValue = entry[value];
-
-				if (Array.isArray(checkValue)) {
-					if (checkValue.length !== 0) results.push(entry);
-					// If object, ensure not empty
-				} else if (typeof checkValue == 'object') {
-					if (Object.keys(checkValue).length !== 0) results.push(entry);
-					// If neither, ensure its not defined
-				} else {
-					if (checkValue) results.push(entry);
-				}
-			}
-		}
-
-		return results;
-	}
-
-	findType(collection, attribute, value) {
-		this.logger.log(`Comp Type ${value} for ${attribute}`, this.databaseName);
-
-		var results = [];
-		return results;
-	}
-
-	findCount(collection, attribute, value) {
-		this.logger.log(`Count ${value} for ${attribute}`, this.databaseName);
-
-		/*
-		! must be used as 
-		* { $count: {
-		* 		project: string (What it will be attributed as)
-		* 		query: {...}
-		* }
-		*/
-
-		var results = [];
-		return results;
-	}
-
-	/* ------------------------- Query Result operations ------------------------ */
-	/** Provided an array of entries, remove all duplicate entries and return an array with only unique elements.
-	 *
-	 * @param {object[]} results - An array of entries for deduplication
-	 * @returns {object[]}
-	 */
-	deduplicateResults(results) {
-		let deduplicatedResults = [];
-		let resultCount = results.length;
-
-		// Cycle through each result provided
-		for (var i = 0; i < resultCount; i++) {
-			let element = results[i];
-			let found = false;
-			let params = Object.getOwnPropertyNames(element); // Just in case
-
-			// Check that element is not in deduplicated results array
-			for (var j = 0; j < deduplicatedResults.length; j++) {
-				if (this.compareObjects(deduplicatedResults[j], element)) {
-					found = true;
-					break;
-				}
-			}
-
-			// If result was not in array, add
-			if (!found) deduplicatedResults.push(element);
-		}
-
-		return deduplicatedResults;
-	}
-
-	project(results, value) {
-		this.logger.log(`Projection ${value}`, this.databaseName);
-	}
-
-	sort(results, value) {
-		this.logger.log(`Sort ${value}`, this.databaseName);
+		return individualResults;
 	}
 
 	//TODO count methods
-	//TODO group method
+	/*
+	! must be used as 
+	* { $count: {
+	* 		project: string (What it will be attributed as)
+	* 		query: {...}
+	* }
+	*/
 
 	/* -------------------------------------------------------------------------- */
 	/*                               Helper Methods                               */
@@ -2815,6 +2693,26 @@ class Zani {
 		return curr;
 	}
 
+	/** Delete a nested value/property from an object
+	 *
+	 * @param {object} obj - The object to traverse.
+	 * @param {string[]} attribute - The path to the nested attribute as an array.
+	 * @returns {any} - undefined if any part of the path is missing.
+	 */
+	deleteObjectAttribute(obj, attribute) {
+		let curr = obj;
+
+		for (let i = 0; i < attribute.length - 1; i++) {
+			if (!(attribute[i] in curr)) {
+				return undefined;
+			}
+
+			curr = curr[attribute[i]];
+		}
+
+		delete curr[attribute[attribute.length - 1]];
+	}
+
 	/** Get a nested property from an object without modifying the object, adn return true if its present, or false
 	 * if not.
 	 *
@@ -2899,6 +2797,10 @@ class Zani {
 		return `${this.databaseName}\\indexes\\${collection}\\${attribute}`;
 	}
 
+	/* -------------------------------------------------------------------------- */
+	/*                               Set Operations                               */
+	/* -------------------------------------------------------------------------- */
+	
 	/** Returns the difference between setA and setB. This is equivalent to setA/setB.
 	 *
 	 * @param {Set} setA - The set to divide
@@ -2907,6 +2809,40 @@ class Zani {
 	setDifference(setA, setB) {
 		return new Set([...setA].filter((x) => !setB.has(x)));
 	}
+
+	/** Returns the intersection between setA and setB. This is equivalent to setA ∩ setB.
+	 *
+	 * @param {Set} setA - The first set
+	 * @param {Set} setB - The second set
+	 * @returns {Set} A new set containing elements present in both setA and setB
+	 */
+	setIntersection(setA, setB) {
+		return new Set([...setA].filter((x) => setB.has(x)));
+	}
+
+	/** Returns the union between setA and setB. This is equivalent to setA ∪ setB.
+	 *
+	 * @param {Set} setA - The first set
+	 * @param {Set} setB - The second set
+	 * @returns {Set} A new set containing all elements from setA and setB
+	 */
+	setUnion(setA, setB) {
+		return new Set([...setA, ...setB]);
+	}
+
+	/** Returns the symmetric difference between setA and setB. This is equivalent to (setA ∪ setB) \ (setA ∩ setB).
+     *
+     * @param {Set} setA - The first set
+     * @param {Set} setB - The second set
+     * @returns {Set} A new set containing elements present in either setA or setB, but not both
+     */
+    setSymmetricDifference(setA, setB) {
+        const union = this.setUnion(setA, setB);
+        const intersection = this.setIntersection(setA, setB);
+        return this.setDifference(union, intersection);
+    }
+
+
 	/* -------------------------------------------------------------------------- */
 	/*                                  Utilities                                 */
 	/* -------------------------------------------------------------------------- */

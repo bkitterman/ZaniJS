@@ -3,29 +3,31 @@ const fs = require('fs');
 
 // Custom Import
 const Zani = require('./zani');
+const BPlusTree = require('./bPlusTree');
 
 /** This is a basic test file for ZaniJS to ensure it is functioning as intended.
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
 
-var db = new Zani('Test');
+var db = new Zani('Test', { fileLimit: 1000 });
 main();
 
 async function main() {
 	//searchTest();
 	// await createTestCollection();
 
-	//! Testing note; What hapopens if a query requests an attribute not present?
+	//! Testing note; What happens if a query requests an attribute not present?
 	/* 
 	! Things to test
-	- FIRST: Test all non-indexed methods
 	- Uppercase/lowercase on things like $gt -> $Gt/gT
 	- Query check, making sure things are used properly rather than just 'where they fit'
 	- Test object nesting with more defined data. works as is now in non-indexed files
 	*/
-	await db.find('PlaceHolder', {
-		value: {$gt: 3}
+	await db.find('Testing', {
+		$not: {
+			value: {$lt: 11950}
+		}
 	});
 	//db.findNonIndexedText('%test%test2___test3%', '', '', '');
 }
