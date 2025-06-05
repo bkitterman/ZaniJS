@@ -10,7 +10,6 @@ const ZaniSemaphore = require('./zaniSemaphore');
 //TODO list in order of precedence
 /*
 	- Add indexing
-		- Smart index creation via QueryStats in meta/collections
 		- Create system to allow for constraints to be placed on the attributes/collections
 			- Primary key, ranges, value types, etc.
 			- Stored in meta.collections as an array of objects (array[0] is primary key) with format
@@ -31,15 +30,10 @@ const ZaniSemaphore = require('./zaniSemaphore');
 			  be upheld, no exceptions.
 	- Add event emitters to allow for user-definition of activities, publish-subscribe system. 
 		- Consider this for logging
-	- Change query system to be entry based rather than condition based (What it is now)
-		- This comes first. It may change next steps (IE with nested objects)
-	- Fix nested objects problem (See below).
 	- Create a MD documentation of query to follow
 	- implement .trash folder later for safer deletion of items
 	- Clean up code
 	- Optimize where needed
-	- Test everything
-		- Create mass data files, test all cases and edges
 	- Add function that creates a txt file of the attributes within each collection, like a meta.pdf
 		- To build on a method that returns a json of values (IE {value: number, obj: {n: string}})
 	- Create options for collections, such as deduplication, unique, constraints, domains
@@ -49,26 +43,6 @@ const ZaniSemaphore = require('./zaniSemaphore');
 		- Requires a export() function to build file from data
 		- Requires a import() function to build project from data file
 	- Consider a terminal-listener for real time data modification and access
-*/
-
-//! Zani only works at single level objects and cannot consider nested objects. IE, in the bellow example,
-//! 	foo cannot be checked, as it is out of reach.
-//* entry: {foo: "bar"},
-
-/*
-? This issue could be fixed via a implementation of a stack object (build custom) that has two functions.
-?		The first is to peek/push/pop, which will be called before traversal, on arrival, and after traversal
-?			This can be added in as the 'attribute' parameter in find
-?		The second is to check if the address (length of stack) is greater than 1. If it is, it is a nested
-?		object and must be handled differently. if it is not, it can be treated as code is now. 
-*/
-
-/*
-! NOTE: Currently, using a for each condition -> for each entry -> test condition approach which is slow
-todo	Change this to a for each entry -> for each condition -> Test condition
-?		Benefits: Faster, can short circuit (IE range, AND condition), might be deduplicated by nature?
-?		How to do it:
-?			Similar logic as is now, change to passing entry around and globalized query. 
 */
 
 /** A lightweight, out-of-memory NoSQL Document Store database system.
@@ -207,7 +181,7 @@ class Zani {
 	 * @param {boolean} [options.crashDetector=true] - Enable crash detecting method to handle unexpected events, and log errors.
 	 * @param {number} [options.treeOrder] - Define the max number of entries in any node of any index tree.
 	 * @param {boolean} [options.smartIndexing] - When a value is queried 10 times, a index will be automatically created if not already present.
-	 * 
+	 *
 	 * @param {object} options.consoleOptions - Define the console options to be used by the logging object.
 	 */
 	configureOptions(options) {
@@ -343,16 +317,21 @@ class Zani {
 	 *
 	 * @param {string} collection - The name of the collection to add
 	 */
-	addCollection(collection) {
-		// TODO add collection options, like required parameter?
+	addCollection(collection, options = {}) {
 		// Check if system is ready
 		if (!this.checkForCollection(collection)) return;
 
 		// Create collection folder
 		fs.mkdirSync(`${this.databaseName}\\collections\\${collection}`);
 
-		// Create Collection Index Folder
+		// Create options object
+		const indexes = this.configureCollectionOptions(options);
+		fs.writeFileSync(`${this.databaseName}\\collections\\${collection}\\meta.json`, options);
+-
+		// Create Collection Index Folder and any default collections
 		fs.mkdirSync(`${this.databaseName}\\indexes\\${collection}`);
+		for(const element of indexes) 
+			this.createIndex(collection, element);
 
 		// Update metadata, add collection
 		Object.defineProperty(this.meta.collections, collection, {
@@ -460,6 +439,95 @@ class Zani {
 		}
 
 		return results;
+	}
+
+	/** Configure a collection options object with all necessary settings, as defined by either the user
+	 * or Zani's default settings. 
+	 * 
+	 * Note: For attribute settings, they should be placed at options.attributes[attributeName]. These settings
+	 * only work at depth 1. Nesting objects can be permitted through use of 'datatype = "object"' parameter. 
+	 * Nested objects can be indexed to depth 2.
+	 * 
+	 * @param {object} options - The collection settings object.
+	 * 
+	 * @param {boolean} [options.autoFillAttributes=false] - If a attribute is missing, it will automatically be added to the entry with appropriate datatype or null
+	 * @param {boolean} [options.allowExtraAttributes=true] - If true, no attributes can be added in any entry that do not exist prior to attribute creation.
+	 * @param {boolean} [options.timestamps=false] - If true, the system will maintain a _createdOn and _updatedAt attribute with matching timestamps.
+	 * 
+	 * @param {object} [options.attributes={}] - A object that contains attributes and their individual settings. If a attribute is present in this list, it is required to appear in the entry. If it does not, it will autofill (if checked) or error out otherwise.  
+	 * @param {object} [options.attributes.domain=false] - An object with two attributes: lower and upper that serve as bounds for data validation.
+	 * @param {number|boolean} [options.attributes.domain.lower=false] - Contains the lower bound of permissible values, inclusive. If false, there is no lower bound.
+	 * @param {number|boolean} [options.attributes.domain.upper=false] - Contains the upper bound of permissible values, inclusive. If false, there is no upper bound.
+	 * @param {any[]} [options.attributes.enum=false] - Contains an array of permissible data/values that can be entered as for this attribute. False if all values are permissible, provided they meet other constraints.
+	 * @param {RegExp} [options.attributes.pattern=false] - Contains a RegEx expression for string validation. False if anything is permissible.
+	 * @param {boolean} [options.attributes.unique=false] - if true, this values field must not match any other fields of this attribute within the collection.
+	 * @param {string} [options.attributes.dataType=false] - String form of permissible data type. Can be anything returned by typeof or 'array'. False if no limitations.
+	 * @param {boolean} [options.attributes.permitNull=true] - Defines if null should be counted as a valid data value.
+	 * @param {function} [options.attributes.validator=false] - Define a custom expression for use of validating data values. If null, no validation expression apart from above settings will be used.
+	 * @param {immutable} [options.attributes.immutable=false] - if true, this field cannot be changed after creation.
+	 * @param {boolean} [options.attributes.indexed=false] - If true, a index for this attribute will be created by default.
+	 * 
+	 * @returns {string[]} - A list of attributes to be indexed by default.
+	*/
+	configureCollectionOptions(options) {
+		if(!options.hasOwnProperty('autoFillAttributes')) options.autoFillAttributes = false;
+		if(!options.hasOwnProperty('allowExtraAttributes')) options.allowExtraAttributes = true;
+		if(!options.hasOwnProperty('timestamps')) options.timestamps = false;
+
+		var defaultIndexes = [];
+		if(options.hasOwnProperty('attributes')) {
+			for(const key in options.attributes) {
+				if(options.attributes[key].hasOwnProperty('domain')) {
+					if(!options.attributes[key].domain.hasOwnProperty('lower')) 
+						options.attributes[key].domain.lower = false;
+					if(!options.attributes[key].domain.hasOwnProperty('upper')) 
+						options.attributes[key].domain.lower = false;
+				} else options.attributes[key].domain = false;
+
+				if(!options.attributes[key].hasOwnProperty('enum')) options.attributes[key].enum = false;
+				if(!options.attributes[key].hasOwnProperty('pattern')) options.attributes[key].pattern = false;
+				if(!options.attributes[key].hasOwnProperty('unique')) options.attributes[key].unique = false;
+				if(!options.attributes[key].hasOwnProperty('dataType')) options.attributes[key].getAttributeDataType = false;
+				if(!options.attributes[key].hasOwnProperty('permitNull')) options.attributes[key].permitNull = true;
+				if(!options.attributes[key].hasOwnProperty('validator')) options.attributes[key].validator = false;
+				if(!options.attributes[key].hasOwnProperty('immutable')) options.attributes[key].immutable = false;
+			
+				if(options.attributes[key].hasOwnProperty('indexed'))
+					if(options.attributes[key].indexed === true)
+						defaultIndexes.push(key);
+			}
+		}else options.attributes = {};
+
+		return defaultIndexes;
+	}
+
+	collectionSettings(collection, options) {
+		/*
+		* This is how it will work
+			- Must be flattened attribute (ie foo.bar)
+			- If its included, its required. Otherwise, it is not.
+			- If a attribute is listed in the field, it is required to be in the entry
+
+			{ 
+				autoFillAttributes: boolean (If true, Zani will fix any errors like missing attributes and have value be either default value if provided or null otherwise)
+				allowExtraAttributes: boolean (Allows later entries to include attributes not in below list)
+				timestamps: boolean (Adds Zani managed _createdOn and _updatedAt timestamps if true)
+				attributes: 
+			 	{	
+					foo: {
+						domain: {upper: num, lower: num} (For numbers)
+						enum: any[] (Permitted values)
+						pattern: regex (For string limitations)
+						unique: boolean (cannot match any other value in collection at this attribute)
+						dataType: string (IE result of typeof, 'array', etc)
+						permitNull: boolean (Allows for use of null as valid value)
+						validator: function
+						immutable: boolean (Cannot change after creation)
+						indexed: boolean (If true, index created by default)
+					}
+				}
+			}
+		*/
 	}
 
 	/* -------------------------------------------------------------------------- */
@@ -860,8 +928,6 @@ class Zani {
 	/*                            Query Related Methods                           */
 	/* -------------------------------------------------------------------------- */
 
-	//TODO consider updating results to be ID based to limit memory usage until after logical operatiosn
-	//TODO replace results array to sets
 	/*
 	* Zani Query flow/breakdown
 		- Given an query, split into indexed and non-indexed attributes
@@ -883,6 +949,7 @@ class Zani {
 		- Projection
 		- Sorting
 	*/
+
 	//TODO create a single object variant
 	/** Perform a query operation on the collection provided. This option of query is slow, and will search
 	 * each entry in the collection for each condition. This method is best used for indexing.
@@ -967,13 +1034,13 @@ class Zani {
 
 		const resultSize = resultSet.size;
 		const setIterator = resultSet[Symbol.iterator]();
-		for(let i = 0; i<resultSize; i++) {
+		for (let i = 0; i < resultSize; i++) {
 			await this.semaphore.acquire();
 			var element = await this.getEntryAsync(collection, setIterator.next().value);
 			this.semaphore.release();
 
 			// For projections
-			if(projections.length > 0) {
+			if (projections.length > 0) {
 				for (const key in element) {
 					if (!projections.includes(key)) {
 						delete element[key];
@@ -982,54 +1049,53 @@ class Zani {
 			}
 
 			// If it was the last key in element, remove by not adding it to array
-			if (Object.keys(element).length !== 0)
-				results.push(element);
+			if (Object.keys(element).length !== 0) results.push(element);
 		}
 
-		const readingTime = (Date.now()-start)/1000;
+		const readingTime = (Date.now() - start) / 1000;
 		this.logger.log(`Reading entries complete in ${readingTime}`);
 
 		//! Can only handle up to depth 1
 		if (sort) {
 			results = results.sort((a, b) => {
-				for(const key in sort) {
+				for (const key in sort) {
 					// Ascending
-					if(sort[key] === 1) {
-						if(a.hasOwnProperty(key) && b.hasOwnProperty(key)) {
-							if(a[key] < b[key]) return -1;
-							if(a[key] > b[key]) return 1;
+					if (sort[key] === 1) {
+						if (a.hasOwnProperty(key) && b.hasOwnProperty(key)) {
+							if (a[key] < b[key]) return -1;
+							if (a[key] > b[key]) return 1;
 						}
-						if(a.hasOwnProperty(key)) return 1;
-						if(b.hasOwnProperty(key)) return -1;
+						if (a.hasOwnProperty(key)) return 1;
+						if (b.hasOwnProperty(key)) return -1;
 					}
 					// Descending
-					if(a.hasOwnProperty(key) && b.hasOwnProperty(key)) {
-						if(a[key] < b[key]) return 1;
-						if(a[key] > b[key]) return -1;
+					if (a.hasOwnProperty(key) && b.hasOwnProperty(key)) {
+						if (a[key] < b[key]) return 1;
+						if (a[key] > b[key]) return -1;
 					}
-					if(a.hasOwnProperty(key)) return -1;
-					if(b.hasOwnProperty(key)) return 1;
-					
+					if (a.hasOwnProperty(key)) return -1;
+					if (b.hasOwnProperty(key)) return 1;
+
 					return 0;
 				}
 			});
 		}
 
 		// if smart indexing is enabled, check through here.
-		if(this.options.smartIndexing) {
+		if (this.options.smartIndexing) {
 			this.smartIndex(collection, query);
 
 			// Create indexes if needed
-			for(const value in this.meta.collections[collection].queryStats) {
-				if(this.meta.collections[collection].queryStats[value] === 10) {
+			for (const value in this.meta.collections[collection].queryStats) {
+				if (this.meta.collections[collection].queryStats[value] === 10) {
 					this.createIndex(collection, value);
 				}
- 			}
+			}
 			this.updateMetaFile();
 		}
 
 		const end = Date.now();
-		const totalTime = (end-start)/1000;
+		const totalTime = (end - start) / 1000;
 		this.logger.log(`Query complete in ${totalTime} seconds`, this.databaseName);
 		return results;
 	}
@@ -1117,26 +1183,26 @@ class Zani {
 	}
 
 	smartIndex(collection, query, depth = []) {
-		for(const key in query) {
-			if(key.charAt(0) !== '$') depth.push(key);
+		for (const key in query) {
+			if (key.charAt(0) !== '$') depth.push(key);
 			var value = query[key];
 
-			if(typeof value === 'object' && !Array.isArray(value))
+			if (typeof value === 'object' && !Array.isArray(value))
 				this.smartIndex(collection, query[key], depth);
 			else {
 				const flat = this.flattenAttribute(depth);
-				if(this.meta.collections[collection].queryStats.hasOwnProperty(flat))
+				if (this.meta.collections[collection].queryStats.hasOwnProperty(flat))
 					this.meta.collections[collection].queryStats[flat]++;
 				else {
 					Object.defineProperty(this.meta.collections[collection].queryStats, flat, {
 						value: 1,
 						enumerable: true,
-						writable: true
+						writable: true,
 					});
 				}
 			}
-			
-			if(key.charAt(0) !== '$') depth.pop();
+
+			if (key.charAt(0) !== '$') depth.pop();
 		}
 	}
 
@@ -2108,11 +2174,11 @@ class Zani {
 	/* ------------------------- Query (Logical) Methods ------------------------ */
 
 	/** Given three result objects (indexed, nonIndexed, results), complete any remaining logical operations
-	 * defined by the query object, reduce the three objects into a single object recursively, and return this 
-	 * object as a final results set, which carries entry IDs that will be used within {@link Zani#find} to 
+	 * defined by the query object, reduce the three objects into a single object recursively, and return this
+	 * object as a final results set, which carries entry IDs that will be used within {@link Zani#find} to
 	 * build the query result array of entries.
 	 *
-	 * This method only works after both queries are completed. These objects can be empty. 
+	 * This method only works after both queries are completed. These objects can be empty.
 	 *
 	 * @param {string} collection - The name of the collection to search
 	 * @param {object} query - The criteria to apply to each entry
@@ -2127,7 +2193,14 @@ class Zani {
 		var results = structuredClone(query);
 		this.prepareResultsObject(results);
 
-		this.findLogicalRouter(query, results, indexedResults, nonIndexedResults, undefined, collection);
+		this.findLogicalRouter(
+			query,
+			results,
+			indexedResults,
+			nonIndexedResults,
+			undefined,
+			collection,
+		);
 		results = this.findLogicalFinal(results, indexedResults, nonIndexedResults);
 
 		const end = Date.now();
@@ -2151,7 +2224,14 @@ class Zani {
 	 * @param {object} depth - The variable tracking the current object depth, and attribute path (unflattened)
 	 * @param {string} collection - The name of the collection to search
 	 */
-	findLogicalRouter(query, results,indexedResults,nonIndexedResults,depth = { entry: [], query: [] }, collection) {
+	findLogicalRouter(
+		query,
+		results,
+		indexedResults,
+		nonIndexedResults,
+		depth = { entry: [], query: [] },
+		collection,
+	) {
 		for (const key in query) {
 			if (key.charAt(0) !== '$') depth.entry.push(key);
 			depth.query.push(key);
@@ -2159,7 +2239,14 @@ class Zani {
 			let attributeValue = this.getAttributeDataType(query[key]);
 
 			if (attributeValue === 'object') {
-				this.findLogicalRouter(query[key], results, indexedResults, nonIndexedResults, depth, collection);
+				this.findLogicalRouter(
+					query[key],
+					results,
+					indexedResults,
+					nonIndexedResults,
+					depth,
+					collection,
+				);
 				if (key.charAt(0) === '$' && this.queryOperators.logical.hasOwnProperty(key)) {
 					this.queryOperators.logical[key](
 						query[key],
@@ -2206,7 +2293,13 @@ class Zani {
 	findLogicalAnd(query, results, indexedResults, nonIndexedResults, depth) {
 		this.logger.log(`Logical and for ${depth.entry}`, this.databaseName);
 
-		var individualResults = this.extractResults(query, results, indexedResults, nonIndexedResults, depth);
+		var individualResults = this.extractResults(
+			query,
+			results,
+			indexedResults,
+			nonIndexedResults,
+			depth,
+		);
 
 		if (individualResults.length === 0) return;
 
@@ -2245,7 +2338,13 @@ class Zani {
 	findLogicalNand(query, results, indexedResults, nonIndexedResults, depth, collection) {
 		this.logger.log(`Logical nand for ${depth.entry}`, this.databaseName);
 
-		var individualResults = this.extractResults(query, results, indexedResults, nonIndexedResults, depth);
+		var individualResults = this.extractResults(
+			query,
+			results,
+			indexedResults,
+			nonIndexedResults,
+			depth,
+		);
 
 		if (individualResults.length === 0) return;
 
@@ -2258,11 +2357,10 @@ class Zani {
 		// Create set of all possible indexes
 		const collectionSize = this.getCollectionSize(collection);
 		var validIndexes = new Set();
-		for(let i = 0; i < collectionSize; i++) 
-			validIndexes.add(i);
+		for (let i = 0; i < collectionSize; i++) validIndexes.add(i);
 
 		// Remove missing entry ids
-		for(const element of this.meta.collections[collection].availableIDs) 
+		for (const element of this.meta.collections[collection].availableIDs)
 			validIndexes.delete(element);
 
 		// Perform not operation
@@ -2297,7 +2395,13 @@ class Zani {
 	findLogicalOr(query, results, indexedResults, nonIndexedResults, depth) {
 		this.logger.log(`Logical or for ${depth.entry}`, this.databaseName);
 
-		var individualResults = this.extractResults(query, results, indexedResults, nonIndexedResults, depth);
+		var individualResults = this.extractResults(
+			query,
+			results,
+			indexedResults,
+			nonIndexedResults,
+			depth,
+		);
 
 		if (individualResults.length === 0) return;
 
@@ -2336,7 +2440,13 @@ class Zani {
 	findLogicalNor(query, results, indexedResults, nonIndexedResults, depth, collection) {
 		this.logger.log(`Logical nor for ${depth.entry}`, this.databaseName);
 
-		var individualResults = this.extractResults(query, results, indexedResults, nonIndexedResults, depth);
+		var individualResults = this.extractResults(
+			query,
+			results,
+			indexedResults,
+			nonIndexedResults,
+			depth,
+		);
 
 		if (individualResults.length === 0) return;
 
@@ -2349,11 +2459,10 @@ class Zani {
 		// Create set of all possible indexes
 		const collectionSize = this.getCollectionSize(collection);
 		var validIndexes = new Set();
-		for(let i = 0; i < collectionSize; i++) 
-			validIndexes.add(i);
+		for (let i = 0; i < collectionSize; i++) validIndexes.add(i);
 
 		// Remove missing entry ids
-		for(const element of this.meta.collections[collection].availableIDs) 
+		for (const element of this.meta.collections[collection].availableIDs)
 			validIndexes.delete(element);
 
 		// Perform not operation
@@ -2390,7 +2499,13 @@ class Zani {
 	findLogicalXor(query, results, indexedResults, nonIndexedResults, depth) {
 		this.logger.log(`Logical Xor for ${depth.entry}`, this.databaseName);
 
-		var individualResults = this.extractResults(query, results, indexedResults, nonIndexedResults, depth);
+		var individualResults = this.extractResults(
+			query,
+			results,
+			indexedResults,
+			nonIndexedResults,
+			depth,
+		);
 
 		if (individualResults.length === 0) return;
 
@@ -2409,7 +2524,7 @@ class Zani {
 	 * This method should only be called from the non-indexed router method {@link Zani#findLogicalRouter}.
 	 *
 	 * Note: If more than one attribute is passed/set between the three objects, a logical NAND is performed.
-	 * 
+	 *
 	 * See query documentation for usage.
 	 *
 	 * @example
@@ -2431,7 +2546,13 @@ class Zani {
 	findLogicalNot(query, results, indexedResults, nonIndexedResults, depth, collection) {
 		this.logger.log(`Logical not for ${depth.entry}`, this.databaseName);
 
-		var individualResults = this.extractResults(query, results, indexedResults, nonIndexedResults, depth);
+		var individualResults = this.extractResults(
+			query,
+			results,
+			indexedResults,
+			nonIndexedResults,
+			depth,
+		);
 
 		if (individualResults.length === 0) return;
 		if (individualResults.length !== 1) {
@@ -2439,16 +2560,15 @@ class Zani {
 			for (let i = 1; i < individualResults.length; i++) {
 				individualResults[0] = this.setIntersection(individualResults[0], individualResults[i]);
 			}
-		};
+		}
 
 		// Create set of all possible indexes
 		const collectionSize = this.getCollectionSize(collection);
 		var validIndexes = new Set();
-		for(let i = 0; i < collectionSize; i++) 
-			validIndexes.add(i);
+		for (let i = 0; i < collectionSize; i++) validIndexes.add(i);
 
 		// Remove missing entry ids
-		for(const element of this.meta.collections[collection].availableIDs) 
+		for (const element of this.meta.collections[collection].availableIDs)
 			validIndexes.delete(element);
 
 		// Perform not operation
@@ -2459,8 +2579,8 @@ class Zani {
 	}
 
 	/** Perform the final AND operation on the three result objects, and return the final set. This method can only
-	 * be called after results is entirely down to a single layer. 
-	 * 
+	 * be called after results is entirely down to a single layer.
+	 *
 	 * @param {object} results - The results object
 	 * @param {object} indexedResults - The indexed results object
 	 * @param {object} nonIndexedResults - The non indexed results object
@@ -2468,25 +2588,24 @@ class Zani {
 	 */
 	findLogicalFinal(results, indexedResults, nonIndexedResults) {
 		var individualResults = [];
-		for(const key in results) {
-			if(results[key] instanceof Set && results[key].size !== 0) {
+		for (const key in results) {
+			if (results[key] instanceof Set && results[key].size !== 0) {
 				individualResults.push(results[key]);
 				continue;
 			}
-			
-			if(indexedResults[key] instanceof Set) {
+
+			if (indexedResults[key] instanceof Set) {
 				individualResults.push(indexedResults[key]);
 				continue;
 			}
 
-			if(nonIndexedResults[key] instanceof Set) {
+			if (nonIndexedResults[key] instanceof Set) {
 				individualResults.push(nonIndexedResults[key]);
 				continue;
 			}
 		}
-		
-		
-		if(individualResults.length < 1) {
+
+		if (individualResults.length < 1) {
 			results = individualResults[0];
 			return;
 		}
@@ -2501,7 +2620,7 @@ class Zani {
 	/** Returns all results from an object as an array at a specified depth. All entries in this array
 	 * will be set objects of length 0 or greater. This method also truncates any objects if a set is extracted
 	 * to remove that attribute to reduce memory footprint.
-	 * 
+	 *
 	 * @param {object} query - The query object
 	 * @param {object} results - The results object
 	 * @param {object} indexedResults - The indexed query results
@@ -2513,29 +2632,29 @@ class Zani {
 		var individualResults = [];
 		for (const key in query) {
 			const destination = [...depth.query, key];
-			
+
 			var extractedResults = this.getObjectAttribute(indexedResults, destination);
-			if(extractedResults instanceof Set) {
+			if (extractedResults instanceof Set) {
 				this.deleteObjectAttribute(indexedResults, destination);
 				individualResults.push(extractedResults);
-			
+
 				continue;
 			}
 
 			extractedResults = this.getObjectAttribute(nonIndexedResults, destination);
-			if(extractedResults instanceof Set) {
+			if (extractedResults instanceof Set) {
 				this.deleteObjectAttribute(nonIndexedResults, destination);
 				individualResults.push(extractedResults);
-			
+
 				continue;
 			}
 
 			extractedResults = this.getObjectAttribute(results, destination);
-			if(extractedResults instanceof Set) {		
+			if (extractedResults instanceof Set) {
 				individualResults.push(extractedResults);
-			
+
 				continue;
-			}			
+			}
 		}
 
 		return individualResults;
@@ -2870,7 +2989,7 @@ class Zani {
 	/* -------------------------------------------------------------------------- */
 	/*                               Set Operations                               */
 	/* -------------------------------------------------------------------------- */
-	
+
 	/** Returns the difference between setA and setB. This is equivalent to setA/setB.
 	 *
 	 * @param {Set} setA - The set to divide
@@ -2901,17 +3020,16 @@ class Zani {
 	}
 
 	/** Returns the symmetric difference between setA and setB. This is equivalent to (setA ∪ setB) \ (setA ∩ setB).
-     *
-     * @param {Set} setA - The first set
-     * @param {Set} setB - The second set
-     * @returns {Set} A new set containing elements present in either setA or setB, but not both
-     */
-    setSymmetricDifference(setA, setB) {
-        const union = this.setUnion(setA, setB);
-        const intersection = this.setIntersection(setA, setB);
-        return this.setDifference(union, intersection);
-    }
-
+	 *
+	 * @param {Set} setA - The first set
+	 * @param {Set} setB - The second set
+	 * @returns {Set} A new set containing elements present in either setA or setB, but not both
+	 */
+	setSymmetricDifference(setA, setB) {
+		const union = this.setUnion(setA, setB);
+		const intersection = this.setIntersection(setA, setB);
+		return this.setDifference(union, intersection);
+	}
 
 	/* -------------------------------------------------------------------------- */
 	/*                                  Utilities                                 */

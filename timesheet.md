@@ -25,3 +25,14 @@ Active: 6 days
 - Added semaphore to ensure file limit cannot be reached
 - Built query outline, including deconstruction of query into indexed and non-indexed parts
 - Added all non-indexed query methods (For each entry, run entire query)
+
+### 1-7 June, 2025
+Total Time: 
+Average: 
+Active: 
+
+**Accomplished**
+- Added all indexed query methods (For each query criteria, search indexed values for appropriate entries)
+- Switch to storing ID during query rather than method to reduce memory footprint
+- Added all logical query methods ($and, $or, etc)
+- Added projection, sorting, and smart indexing functionality, effectively completing query engine

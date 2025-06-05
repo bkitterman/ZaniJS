@@ -25,13 +25,7 @@ async function main() {
 	- Test object nesting with more defined data. works as is now in non-indexed files
 	*/
 	const results = await db.find('Testing', {
-		 value: {$gt: 0}
-	},
-	{
-		value: 1
-	},
-	{
-		value: -1
+		 nonIndexedValue: 10
 	});
 	console.log(results);
 
