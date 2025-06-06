@@ -456,15 +456,15 @@ class Zani {
 	 * 
 	 * @param {object} [options.attributes={}] - A object that contains attributes and their individual settings. If a attribute is present in this list, it is required to appear in the entry. If it does not, it will autofill (if checked) or error out otherwise.  
 	 * @param {object} [options.attributes.domain=false] - An object with two attributes: lower and upper that serve as bounds for data validation.
-	 * @param {number|boolean} [options.attributes.domain.lower=false] - Contains the lower bound of permissible values, inclusive. If false, there is no lower bound.
-	 * @param {number|boolean} [options.attributes.domain.upper=false] - Contains the upper bound of permissible values, inclusive. If false, there is no upper bound.
+	 * @param {number} [options.attributes.domain.lower=false] - Contains the lower bound of permissible values, inclusive. If false, there is no lower bound.
+	 * @param {number} [options.attributes.domain.upper=false] - Contains the upper bound of permissible values, inclusive. If false, there is no upper bound.
 	 * @param {any[]} [options.attributes.enum=false] - Contains an array of permissible data/values that can be entered as for this attribute. False if all values are permissible, provided they meet other constraints.
 	 * @param {RegExp} [options.attributes.pattern=false] - Contains a RegEx expression for string validation. False if anything is permissible.
 	 * @param {boolean} [options.attributes.unique=false] - if true, this values field must not match any other fields of this attribute within the collection.
 	 * @param {string} [options.attributes.dataType=false] - String form of permissible data type. Can be anything returned by typeof or 'array'. False if no limitations.
 	 * @param {boolean} [options.attributes.permitNull=true] - Defines if null should be counted as a valid data value.
 	 * @param {function} [options.attributes.validator=false] - Define a custom expression for use of validating data values. If null, no validation expression apart from above settings will be used.
-	 * @param {immutable} [options.attributes.immutable=false] - if true, this field cannot be changed after creation.
+	 * @param {boolean} [options.attributes.immutable=false] - if true, this field cannot be changed after creation.
 	 * @param {boolean} [options.attributes.indexed=false] - If true, a index for this attribute will be created by default.
 	 * 
 	 * @returns {string[]} - A list of attributes to be indexed by default.
