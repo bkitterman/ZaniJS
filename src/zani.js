@@ -9,7 +9,7 @@ const ZaniSemaphore = require('./zaniSemaphore');
 
 //TODO list in order of precedence
 /*
-	- Add indexing
+	- Add indexing 
 		- Create system to allow for constraints to be placed on the attributes/collections
 			- Primary key, ranges, value types, etc.
 			- Stored in meta.collections as an array of objects (array[0] is primary key) with format
