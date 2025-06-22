@@ -27,12 +27,22 @@ Active: 6 days
 - Added all non-indexed query methods (For each entry, run entire query)
 
 ### 1-7 June, 2025
-Total Time: 
-Average: 
-Active: 
+Total Time: 10 hours, 2 minutes
+Average:  3 hours, 21 minutes
+Active: 3 days
 
 **Accomplished**
 - Added all indexed query methods (For each query criteria, search indexed values for appropriate entries)
 - Switch to storing ID during query rather than method to reduce memory footprint
 - Added all logical query methods ($and, $or, etc)
 - Added projection, sorting, and smart indexing functionality, effectively completing query engine
+- Began outline of collection settings/constraints
+
+### 15-21 June, 2025
+Total Time: 3 hours, 3 minutes
+Average:
+Active: 3 Days
+
+**Accomplished**
+- Created documentation of collection and settings
+- Updated outline of collection settings/constraints to match

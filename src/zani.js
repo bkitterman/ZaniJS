@@ -43,6 +43,10 @@ const ZaniSemaphore = require('./zaniSemaphore');
 		- Requires a export() function to build file from data
 		- Requires a import() function to build project from data file
 	- Consider a terminal-listener for real time data modification and access
+	- Add a system to allow for control over CPU/resource utilization
+		- Light (1) - 33% at most
+		- Medium (2) - 66% at most
+		- Heavy (3) - 100% at most
 */
 
 /** A lightweight, out-of-memory NoSQL Document Store database system.
@@ -318,16 +322,22 @@ class Zani {
 	 * @param {string} collection - The name of the collection to add
 	 */
 	addCollection(collection, options = {}) {
-		// Check if system is ready
-		if (!this.checkForCollection(collection)) return;
+		// Check if active database
+		if (!this.checkForActiveDatabase()) return;
+
+		// Check if collection already exists
+		if(this.meta.collections.hasOwnProperty(collection)) {
+			this.logger.error(`The collection ${collection} already exists`, this.databaseName);
+			return;
+		}
 
 		// Create collection folder
 		fs.mkdirSync(`${this.databaseName}\\collections\\${collection}`);
 
 		// Create options object
 		const indexes = this.configureCollectionOptions(options);
-		fs.writeFileSync(`${this.databaseName}\\collections\\${collection}\\meta.json`, options);
--
+		fs.writeFileSync(`${this.databaseName}\\collections\\${collection}\\meta.json`, JSON.stringify(options));
+
 		// Create Collection Index Folder and any default collections
 		fs.mkdirSync(`${this.databaseName}\\indexes\\${collection}`);
 		for(const element of indexes) 
@@ -450,28 +460,33 @@ class Zani {
 	 * 
 	 * @param {object} options - The collection settings object.
 	 * 
-	 * @param {boolean} [options.autoFillAttributes=false] - If a attribute is missing, it will automatically be added to the entry with appropriate datatype or null
-	 * @param {boolean} [options.allowExtraAttributes=true] - If true, no attributes can be added in any entry that do not exist prior to attribute creation.
+	 * @param {boolean} [options.autofillAttributes=false] - If a attribute is missing, it will automatically be added to the entry with appropriate datatype or null
+	 * @param {boolean} [options.allowExtraAttributes=true] - If false, no attributes can be added in any entry that do not exist prior to attribute creation.
+	 * @param {boolean} [options.attributeLock=false] - If true, only attributes within the attribute array may be within an entry.
 	 * @param {boolean} [options.timestamps=false] - If true, the system will maintain a _createdOn and _updatedAt attribute with matching timestamps.
 	 * 
 	 * @param {object} [options.attributes={}] - A object that contains attributes and their individual settings. If a attribute is present in this list, it is required to appear in the entry. If it does not, it will autofill (if checked) or error out otherwise.  
 	 * @param {object} [options.attributes.domain=false] - An object with two attributes: lower and upper that serve as bounds for data validation.
 	 * @param {number} [options.attributes.domain.lower=false] - Contains the lower bound of permissible values, inclusive. If false, there is no lower bound.
 	 * @param {number} [options.attributes.domain.upper=false] - Contains the upper bound of permissible values, inclusive. If false, there is no upper bound.
-	 * @param {any[]} [options.attributes.enum=false] - Contains an array of permissible data/values that can be entered as for this attribute. False if all values are permissible, provided they meet other constraints.
+	 * @param {any[]} [options.attributes.enum=false] - Contains an array of permissible data/values that can be entered as for this attribute. False if all values are permissible. This disables all other constraints.
+	 * @param {any[]} [options.attributes.outlier=false] - Contains an array of permissible data/values that can be entered as for this attribute. False if no outliers are permissible. This ignores other constraints.
 	 * @param {RegExp} [options.attributes.pattern=false] - Contains a RegEx expression for string validation. False if anything is permissible.
 	 * @param {boolean} [options.attributes.unique=false] - if true, this values field must not match any other fields of this attribute within the collection.
 	 * @param {string} [options.attributes.dataType=false] - String form of permissible data type. Can be anything returned by typeof or 'array'. False if no limitations.
 	 * @param {boolean} [options.attributes.permitNull=true] - Defines if null should be counted as a valid data value.
 	 * @param {function} [options.attributes.validator=false] - Define a custom expression for use of validating data values. If null, no validation expression apart from above settings will be used.
 	 * @param {boolean} [options.attributes.immutable=false] - if true, this field cannot be changed after creation.
+	 * @param {function} [options.attributes.autofillValue=null] - Define a custom value for use in autofill, if enabled. If not provided, it will default to null.
+	 * @param {boolean} [options.attributes.required=true] - if true, this attribute is required. Can be used to override default attribute settings.
 	 * @param {boolean} [options.attributes.indexed=false] - If true, a index for this attribute will be created by default.
 	 * 
 	 * @returns {string[]} - A list of attributes to be indexed by default.
 	*/
 	configureCollectionOptions(options) {
-		if(!options.hasOwnProperty('autoFillAttributes')) options.autoFillAttributes = false;
+		if(!options.hasOwnProperty('autofillAttributes')) options.autofillAttributes = false;
 		if(!options.hasOwnProperty('allowExtraAttributes')) options.allowExtraAttributes = true;
+		if(!options.hasOwnProperty('attributeLock')) options.attributeLock = false;
 		if(!options.hasOwnProperty('timestamps')) options.timestamps = false;
 
 		var defaultIndexes = [];
@@ -485,13 +500,17 @@ class Zani {
 				} else options.attributes[key].domain = false;
 
 				if(!options.attributes[key].hasOwnProperty('enum')) options.attributes[key].enum = false;
+				if(!options.attributes[key].hasOwnProperty('outlier')) options.attributes[key].outlier = false;
 				if(!options.attributes[key].hasOwnProperty('pattern')) options.attributes[key].pattern = false;
 				if(!options.attributes[key].hasOwnProperty('unique')) options.attributes[key].unique = false;
-				if(!options.attributes[key].hasOwnProperty('dataType')) options.attributes[key].getAttributeDataType = false;
+				if(!options.attributes[key].hasOwnProperty('dataType')) options.attributes[key].dataType = false;
 				if(!options.attributes[key].hasOwnProperty('permitNull')) options.attributes[key].permitNull = true;
 				if(!options.attributes[key].hasOwnProperty('validator')) options.attributes[key].validator = false;
 				if(!options.attributes[key].hasOwnProperty('immutable')) options.attributes[key].immutable = false;
-			
+				if(!options.attributes[key].hasOwnProperty('autofillValue')) options.attributes[key].autofillValue = null;
+				if(!options.attributes[key].hasOwnProperty('required')) options.attributes[key].required = true;
+
+
 				if(options.attributes[key].hasOwnProperty('indexed'))
 					if(options.attributes[key].indexed === true)
 						defaultIndexes.push(key);
@@ -501,33 +520,15 @@ class Zani {
 		return defaultIndexes;
 	}
 
-	collectionSettings(collection, options) {
-		/*
-		* This is how it will work
-			- Must be flattened attribute (ie foo.bar)
-			- If its included, its required. Otherwise, it is not.
-			- If a attribute is listed in the field, it is required to be in the entry
+	/** Retrieves a collections setting object from its meta.json file.
+	 * 
+	 * @param {string} collection - The name of the collection
+	 * @returns {object} - The collection settings object
+	 */
+	getCollectionSettings(collection) {
+		if (!this.checkForCollection(collection)) return;
 
-			{ 
-				autoFillAttributes: boolean (If true, Zani will fix any errors like missing attributes and have value be either default value if provided or null otherwise)
-				allowExtraAttributes: boolean (Allows later entries to include attributes not in below list)
-				timestamps: boolean (Adds Zani managed _createdOn and _updatedAt timestamps if true)
-				attributes: 
-			 	{	
-					foo: {
-						domain: {upper: num, lower: num} (For numbers)
-						enum: any[] (Permitted values)
-						pattern: regex (For string limitations)
-						unique: boolean (cannot match any other value in collection at this attribute)
-						dataType: string (IE result of typeof, 'array', etc)
-						permitNull: boolean (Allows for use of null as valid value)
-						validator: function
-						immutable: boolean (Cannot change after creation)
-						indexed: boolean (If true, index created by default)
-					}
-				}
-			}
-		*/
+		return JSON.parse(fs.readFileSync(`${this.databaseName}\\collections\\${collection}\\meta.json`))
 	}
 
 	/* -------------------------------------------------------------------------- */
@@ -646,24 +647,28 @@ class Zani {
 			return;
 		}
 
-		// Check that there are no empty values in entry
-		for (const key in entry) {
-			if (entry[key] === undefined) {
-				this.logger.error(
-					`Entry value passed contains empty value(s).`,
-					this.databaseName,
-					`The value ${key} in entry is undefined. Please ensure all attributes in the entry contain one of the following:` +
-						`an array, object, number, boolean, or string.`,
-				);
-				return;
-			}
-		}
+		//! Fix this into rest of code O(n)
+		// // Check that there are no empty values in entry
+		// for (const key in entry) {
+		// 	if (entry[key] === undefined) {
+		// 		this.logger.error(
+		// 			`Entry value passed contains empty value(s).`,
+		// 			this.databaseName,
+		// 			`The value ${key} in entry is undefined. Please ensure all attributes in the entry contain one of the following:` +
+		// 				`an array, object, number, boolean, or string.`,
+		// 		);
+		// 		return;
+		// 	}
+		// }
 
 		// Get metadata index, _id for entry
 		let id = 0;
 		if (this.meta.collections[collection].availableIDs.length > 0) {
 			id = this.meta.collections[collection].availableIDs.pop();
 		} else id = this.meta.collections[collection].entries++;
+
+		// Get collection settings
+		const settings = this.getCollectionSettings(collection);
 
 		// Ensure ID is not being defined by user
 		if (entry.hasOwnProperty('_id')) {
@@ -678,9 +683,13 @@ class Zani {
 			writable: false,
 		});
 
+		//TODO? Consider removing this since it only serves to debug
 		// Rearrange entry such that _id is first
 		const { _id, ...rest } = entry;
 		entry = { _id, ...rest };
+
+		// Ensure entry matches settings
+		// if(!this.validateEntry(collection, entry, settings)) return;
 
 		// Add to collection
 		const path = `${this.databaseName}\\collections\\${collection}\\${this.getEntryFolder(id)}`;
@@ -924,6 +933,278 @@ class Zani {
 		return entry;
 	}
 
+	/** Compare an entry to a collection settings, and ensure it either is permissible by all constraints, and/or
+	 * is matching collection settings to be added.
+	 * 
+	 * If settings is not passed, it will be gathered based on collection name provided.
+	 * 
+	 * @param {string} collection - The name of the collection
+	 * @param {object} entry - The entry to be added to collection
+	 * @param {boolean} update - If this should be compared to as an update (true) or insertion (false)
+	 * @param {object?} settings - The settings object
+	 * @returns {boolean} - Result of validation against collection settings 
+	 */
+	validateEntry(collection, entry, update, settings) {
+		if(!this.checkForCollection(collection)) return false;
+		if(!settings) settings = this.getCollectionSettings(collection);
+
+		if(update) return this.validateEntryUpdate(collection, entry, settings);
+
+		// Collection wide checks
+		const id = entry._id;
+		const originalEntry = this.getEntry(collection, id);
+
+		const entryKeys = Object.keys(entry);
+
+		// Settings.attributeLock check
+		if(settings.attributeLock) {
+			const entryStructure = Object.keys(settings.attributes);
+			var invalidKeys = [];
+			var valid = true;
+
+			for(const key of entryStructure) {
+				if(entryKeys.includes(key)) continue;
+				invalidKeys.push(key);
+			}
+
+			if(entryStructure.length !== entryKeys.length) valid = false;
+
+			if(invalidKeys.length > 0) {
+				if(settings.autofillAttributes) {
+					for(const key of invalidKeys) {
+						Object.defineProperty(entry, key, {
+							value: settings.attributes[key].autofillValue,
+							enumerable: true,
+							writable: true,
+						});
+					}
+				}else {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry updates provided has failed to pass the 'attributeLock' setting at attribute(s)` +
+						`${invalidKeys.toString} for collection ${collection}. The provided entry structure` +
+						`defined in the collection settings does not align with the provided entry's structure.`
+					);
+					return false;
+				}
+			}
+
+			if(!valid) {
+				if(settings.autofillAttributes) {
+					const structureSet = new Set(entryStructure);
+					const entrySet = new Set(entryKeys);
+					const setDifference = this.setDifference(structureSet, entrySet);
+
+					for(const key of [... entrySet]) {
+						if(!setDifference.has(key)) delete entry[key];
+					}
+				}else {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry values provided has failed to pass the 'attributeLock' setting due to` +
+						`having extra attributes for collection ${collection}. The provided entry structure` +
+						`defined in the collection settings does not align with the provided entry's structure.`
+					);
+					return false;
+				}
+			}
+		}
+
+		// Handle attribute individual settings
+		const attributesList = Object.keys(settings.attributes);
+		for(const attribute of attributesList) {
+			
+			// Settings.attribute.required check
+			if(settings.attributes[attribute].required) {
+				if(!entry.hasOwnProperty(attribute)) {
+					if(settings.autofillAttributes) {
+						Object.defineProperty(entry, attribute, {
+							value: settings.attributes[attribute].autofillValue,
+							enumerable: true,
+							writable: true,
+						});
+						continue;
+					} else {
+						this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+							`The entry values provided has failed to pass the 'required' setting at attribute ${attribute} ` +
+							`for collection ${collection}. This attribute must be present in the entry.`
+						);
+						return false;
+					}
+				}
+			}
+
+			// settings.attributes.enum check
+			if(settings.attributes[attribute].enum !== false) {
+				if(settings.attributes[attribute].enum.length !== 0) {
+					if(!settings.attributes[attribute].enum.includes(entry[attribute])) {
+						this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+							`The entry values provided has failed to pass the 'enum' setting at attribute ${attribute} ` +
+							`for collection ${collection}. This attribute value must be present in the enum setting.`
+						);
+						return false;
+					} else {
+						continue;
+					}
+				}
+			}
+
+			// settings.attributes.outlier check
+			if(settings.attributes[attribute].outlier !== false) {
+				if(settings.attributes[attribute].outlier.length !== 0) {
+					if(settings.attributes[attribute].outlier.includes(entry[attribute])) {
+						continue;
+					}
+				}
+			}
+
+			// settings.attributes.datatype check
+			const attributeDatatype = this.getAttributeDataType(entry[attribute]);
+			if(settings.attributes[attribute].dataType !== false) {
+				if(attributeDatatype !== settings.attributes[attribute].dataType) {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry values provided has failed to pass the 'datatype' setting at attribute ${attribute} ` +
+						`for collection ${collection}. This attribute must be ` +
+						`${settings.attributes[attribute].dataType}.`
+					);
+					return false;
+				}
+			}
+
+			// settings.attributes.permitNull check
+			if(!settings.attributes[attribute].permitNull) {
+				if(attributeDatatype === 'null') {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry values provided has failed to pass the 'permitNull' setting at attribute ${attribute} ` +
+						`for collection ${collection}. The attribute value must not equal null.`
+					);
+					return false;
+				}
+			}
+
+			// settings.attributes.domain check
+			if(attributeDatatype === 'number' && settings.attributes[attribute].domain !== false) {
+				const entryVal = entry[attribute];
+				const lower = settings.attributes[attribute].domain.lower || -Infinity;
+				const upper = settings.attributes[attribute].domain.upper || Infinity;
+
+				if(entryVal<lower || entryVal > upper) {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry values provided has failed to pass the 'domain' setting at attribute ${attribute} ` +
+						`for collection ${collection}. This attribute must be within the range of ${lower} ` +
+						`and ${upper}, inclusive. Provided value: ${entryVal}`
+					);
+					return false;
+				}
+			}
+
+			// settings.attributes.pattern check 
+			if(attributeDatatype === 'string' && settings.attributes[attribute].pattern !== false) {
+				const entryVal = entry[attribute];
+				const expression = new RegExp(settings.attributes[attribute].pattern);
+
+				if(!expression.test(entryVal)) {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry values provided has failed to pass the 'domain' setting at attribute ${attribute} ` +
+						`for collection ${collection}. This attribute must match the provided RegExp pattern.`
+					);
+					return false;
+				}
+			}
+
+			// settings.attribute.validator check
+			if(settings.attributes[attribute].validator !== false) {
+				const func = settings.attributes[attribute].validator;
+
+				try{
+					if(settings.attributes[attribute].validator(entry[attribute]) !== true) {
+						this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+							`The entry values provided has failed to pass the 'validator' setting at attribute ${attribute} ` +
+							`for collection ${collection}. The value has failed the validator function.`
+						);
+						return false;
+					}
+				} catch(err) {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`An error has occurred at the 'validator' setting at attribute ${attribute} ` +
+						`for collection ${collection}. Please ensure the validator function is of return ` +
+						`type boolean, and expects only 1 parameter, as well as ensuring no errors could ` +
+						`occur at this function.\n\n Error caught: ${err}`
+					);
+					return false;
+				}
+			}
+
+			// Settings.attribute.unique check
+			if(settings.attributes[attribute].unique) {
+				if(!this.validateEntryUnique(collection, attribute, entry[attribute])) {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry values provided has failed to pass the 'unique' setting at attribute ${attribute} ` +
+						`for collection ${collection}.The value ${entry[attribute]} is already in use.`
+					);
+					return false;
+				}
+			}
+		}
+
+		console.log(entry);
+
+		// All validations passed, entry ready for insertion.
+		return true;
+	}
+
+	validateEntryUpdate(collection, entry, settings) {
+		// Collection wide checks
+		const id = entry._id;
+		const originalEntry = this.getEntry(collection, id);
+
+		const entryKeys = entry.keys();
+		const originalEntryKeys = originalEntry.keys();
+
+		// Settings.allowExtraAttributes check
+		if(update) {
+			if(!settings.allowExtraAttributes) {
+				for(const key in entryKeys) {
+					if(originalEntryKeys.includes(key)) continue;
+
+					if(settings.autofillAttributes) {
+						delete entry.key;
+						continue;
+					}
+
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry updates provided has failed to pass the 'allowExtraAttributes' setting at attribute ${key}` +
+						`for collection ${collection}. The original entry does not contain this attribute.`
+					);
+					return false;
+				}
+			}			
+		}
+	}
+
+	validateEntryUnique(collection, attribute, value) {
+		// Indexed query
+		if(this.meta.collections[collection].indexed.includes(attribute)) {
+			this.logger.log(`Equal to for indexed at ${attribute}, V: ${value}`);
+			const tree = new BPlusTree(this.getIndexPath(collection, attribute));
+
+			if(tree.search(value) === null) return true;
+			return false;
+		}
+
+		// Non-indexed query
+		var entryCount = this.getCollectionSize(collection);
+
+		for (let i = 0; i < entryCount; i++) {
+			const entry = this.getEntry(collection, i);
+
+			if (entry === null) continue;
+
+			if(entry[attribute] === value) return false;
+		}
+
+		return true;
+
+	}
+
 	/* -------------------------------------------------------------------------- */
 	/*                            Query Related Methods                           */
 	/* -------------------------------------------------------------------------- */
@@ -971,7 +1252,7 @@ class Zani {
 		var queries = { indexed: {}, notIndexed: {}, depth: [] };
 
 		// Build 2 query objects, one for the indexed values and one for the non-indexed values
-		if (!collection) {
+		if (!query) {
 			results = this.getCollection(collection);
 		} else {
 			var queryResults = this.buildQueries(collection, query, queries);

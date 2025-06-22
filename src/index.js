@@ -14,44 +14,46 @@ var db = new Zani('Test', { fileLimit: 100 });
 main();
 
 async function main() {
-	//searchTest();
-	// await createTestCollection();
-
 	//! Testing note; What happens if a query requests an attribute not present?
 	/* 
 	! Things to test
 	- Uppercase/lowercase on things like $gt -> $Gt/gT
 	- Query check, making sure things are used properly rather than just 'where they fit'
 	- Test object nesting with more defined data. works as is now in non-indexed files
-	*/
-	const results = await db.find('Testing', {
-		 nonIndexedValue: 10
-	});
-	console.log(results);
+	// */
+	var options = { 
+		attributeLock: true,
+		autofillAttributes: false,
+		attributes: {  
+			value: {},
+			val: {autofillValue: 0},
+			thing: {}
+		} 
+	};
+	db.configureCollectionOptions(options)
+	console.log(options);
+	console.log(
+		db.validateEntry('Testing', { _id: 12000,}, false, options),
+	);
 
-	//db.findNonIndexedText('%test%test2___test3%', '', '', '');
+	// await buildDatabase();
 }
 
-async function createTestCollection() {
-	//db.createCollection('Testing');
+async function buildDatabase() {
+	db.deleteCollection('Testing');
+	await new Promise((resolve) => setTimeout(resolve, 1000));
+
+	db.createCollection('Testing');
+
 	for (let j = 0; j < 40; j++) {
 		for (let i = 0; i < 300; i++) {
-			db.updateEntry('Testing', {
-				_id: i + j * 300,
-				nonIndexedValue: i,
+			db.addEntry('Testing', {
+				value: i + j * 300,
+				nonIndexedValue: j,
+				insertion: { num: i * j },
 			});
 		}
 		db.logger.warn('File batch ended, pausing', 'Test Server');
 		await new Promise((resolve) => setTimeout(resolve, 100));
 	}
-}
-
-function searchTest() {
-	var result = db.find('NULL', {
-		$exists: '_id',
-	});
-
-	console.log('\n\n---------------Results---------------');
-	console.log(result);
-	console.log('\n');
 }
