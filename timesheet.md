@@ -39,10 +39,12 @@ Active: 3 days
 - Began outline of collection settings/constraints
 
 ### 15-21 June, 2025
-Total Time: 3 hours, 3 minutes
-Average:
+Total Time: 9 hours, 46 minutes
+Average: 3 hours, 15 minutes
 Active: 3 Days
 
 **Accomplished**
 - Created documentation of collection and settings
 - Updated outline of collection settings/constraints to match
+- Added entry insertion validation based on collection settings/constraints
+- Fought with git for 2 hours. Love this program
