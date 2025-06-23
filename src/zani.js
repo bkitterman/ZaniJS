@@ -689,7 +689,7 @@ class Zani {
 		entry = { _id, ...rest };
 
 		// Ensure entry matches settings
-		// if(!this.validateEntry(collection, entry, settings)) return;
+		if(!this.validateEntry(collection, entry, false, settings)) return;
 
 		// Add to collection
 		const path = `${this.databaseName}\\collections\\${collection}\\${this.getEntryFolder(id)}`;
@@ -856,6 +856,9 @@ class Zani {
 			return;
 		}
 
+		// Ensure entry matches settings
+		if(!this.validateEntry(collection, entry, true, settings)) return;
+
 		// Store original values for index removal post-update
 		const originalValues = {};
 		for (const key in updatesToMake) {
@@ -934,7 +937,10 @@ class Zani {
 	}
 
 	/** Compare an entry to a collection settings, and ensure it either is permissible by all constraints, and/or
-	 * is matching collection settings to be added.
+	 * is matching collection settings to be added. This method should be used for both updating and inserting.
+	 * 
+	 * Depending on the value of update, {@link Zani#validateEntryUpdate} will be called to service updates due
+	 * to difference validation checking.
 	 * 
 	 * If settings is not passed, it will be gathered based on collection name provided.
 	 * 
@@ -951,14 +957,12 @@ class Zani {
 		if(update) return this.validateEntryUpdate(collection, entry, settings);
 
 		// Collection wide checks
-		const id = entry._id;
-		const originalEntry = this.getEntry(collection, id);
-
 		const entryKeys = Object.keys(entry);
 
 		// Settings.attributeLock check
 		if(settings.attributeLock) {
 			const entryStructure = Object.keys(settings.attributes);
+			entryStructure.push( ... ['_id', '_createdOn', '_updatedOn']);
 			var invalidKeys = [];
 			var valid = true;
 
@@ -980,8 +984,8 @@ class Zani {
 					}
 				}else {
 					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry updates provided has failed to pass the 'attributeLock' setting at attribute(s)` +
-						`${invalidKeys.toString} for collection ${collection}. The provided entry structure` +
+						`The entry provided has failed to pass the 'attributeLock' setting at attribute(s)` +
+						`${invalidKeys.toString()} for collection ${collection}. The provided entry structure` +
 						`defined in the collection settings does not align with the provided entry's structure.`
 					);
 					return false;
@@ -1112,8 +1116,223 @@ class Zani {
 
 			// settings.attribute.validator check
 			if(settings.attributes[attribute].validator !== false) {
-				const func = settings.attributes[attribute].validator;
+				try{
+					if(settings.attributes[attribute].validator(entry[attribute]) !== true) {
+						this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+							`The entry values provided has failed to pass the 'validator' setting at attribute ${attribute} ` +
+							`for collection ${collection}. The value has failed the validator function.`
+						);
+						return false;
+					}
+				} catch(err) {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`An error has occurred at the 'validator' setting at attribute ${attribute} ` +
+						`for collection ${collection}. Please ensure the validator function is of return ` +
+						`type boolean, and expects only 1 parameter, as well as ensuring no errors could ` +
+						`occur at this function.\n\n Error caught: ${err}`
+					);
+					return false;
+				}
+			}
 
+			// Settings.attribute.unique check
+			if(settings.attributes[attribute].unique) {
+				if(!this.validateEntryUnique(collection, attribute, entry[attribute])) {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry values provided has failed to pass the 'unique' setting at attribute ${attribute} ` +
+						`for collection ${collection}.The value ${entry[attribute]} is already in use.`
+					);
+					return false;
+				}
+			}
+		}
+
+		// All validations passed, entry ready for insertion.
+		return true;
+	}
+
+	/** Compare an entry to a collection settings, and ensure it either is permissible by all constraints, and/or
+	 * is matching collection settings to be added. This method is for validating entry updates, and will provide
+	 * difference results if used to strictly validation of entry insertion.
+	 * 
+	 * @param {string} collection - The name of the collection
+	 * @param {object} entry - The entry to be added to collection
+	 * @param {object} settings - The settings object
+	 * @returns {boolean} - Result of validation against collection settings 
+	 */
+	validateEntryUpdate(collection, entry, settings) {
+		// Collection wide checks
+		const entryKeys = Object.keys(entry);
+
+		// Settings.allowExtraAttributes check
+		if(!settings.allowExtraAttributes) {
+			const originalEntry = this.getEntry(collection, entry._id);
+
+			const originalEntryKeys = Object.keys(originalEntry);
+			for(const key of entryKeys) {
+				if(originalEntryKeys.includes(key)) continue;
+
+				if(settings.autofillAttributes) {
+					delete entry[key];
+					continue;
+				}
+
+				this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+					`The entry updates provided has failed to pass the 'allowExtraAttributes' setting at attribute ${key}` +
+					`for collection ${collection}. The original entry does not contain this attribute.`
+				);
+				return false;
+			}
+		}		
+
+		// Settings.attributeLock check
+		if(settings.attributeLock) {
+			const entryStructure = Object.keys(settings.attributes);
+			entryStructure.push( ... ['_id', '_createdOn', '_updatedOn']);
+			console.log(entryStructure);
+			var invalidKeys = [];
+
+			for(const key of entryKeys) {
+				if(entryStructure.includes(key)) continue;
+				invalidKeys.push(key);
+			}
+
+			if(invalidKeys.length > 0) {
+				if(settings.autofillAttributes) {
+					for(const key of invalidKeys) {
+						console.log(key);
+						delete entry[key];
+					}
+				}else {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry updates provided has failed to pass the 'attributeLock' setting at attribute(s)` +
+						`${invalidKeys.toString()} for collection ${collection}. The provided entry structure` +
+						`defined in the collection settings does not align with the provided entry's structure.`
+					);
+					return false;
+				}
+			}
+		}
+
+		// Handle attribute individual settings
+		const attributesList = Object.keys(settings.attributes);
+		for(const attribute of attributesList) {
+			if(!entry.hasOwnProperty(attribute)) continue;
+
+			// settings.attributes.immutable check
+			if(settings.attributes[attribute].immutable) {
+				if(settings.autofillAttributes) {
+					delete entry[attribute];
+					continue;
+				} else {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+							`The entry update provided has failed to pass the 'immutable' setting at attribute ${attribute} ` +
+							`for collection ${collection}. This attribute cannot be changed.`
+						);
+						return false;
+				}
+			}
+			
+			// Settings.attribute.required check
+			if(settings.attributes[attribute].required) {
+				if(entry[attribute] === undefined) {
+					if(settings.autofillAttributes) {
+						Object.defineProperty(entry, attribute, {
+							value: settings.attributes[attribute].autofillValue,
+							enumerable: true,
+							writable: true,
+						});
+						continue;
+					} else {
+						this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+							`The entry values provided has failed to pass the 'required' setting at attribute ${attribute} ` +
+							`for collection ${collection}. This attribute must be present in the entry.`
+						);
+						return false;
+					}
+				}
+			}
+
+			// settings.attributes.enum check
+			if(settings.attributes[attribute].enum !== false) {
+				if(settings.attributes[attribute].enum.length !== 0) {
+					if(!settings.attributes[attribute].enum.includes(entry[attribute])) {
+						this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+							`The entry values provided has failed to pass the 'enum' setting at attribute ${attribute} ` +
+							`for collection ${collection}. This attribute value must be present in the enum setting.`
+						);
+						return false;
+					} else {
+						continue;
+					}
+				}
+			}
+
+			// settings.attributes.outlier check
+			if(settings.attributes[attribute].outlier !== false) {
+				if(settings.attributes[attribute].outlier.length !== 0) {
+					if(settings.attributes[attribute].outlier.includes(entry[attribute])) {
+						continue;
+					}
+				}
+			}
+
+			// settings.attributes.datatype check
+			const attributeDatatype = this.getAttributeDataType(entry[attribute]);
+			if(settings.attributes[attribute].dataType !== false) {
+				if(attributeDatatype !== settings.attributes[attribute].dataType) {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry values provided has failed to pass the 'datatype' setting at attribute ${attribute} ` +
+						`for collection ${collection}. This attribute must be ` +
+						`${settings.attributes[attribute].dataType}.`
+					);
+					return false;
+				}
+			}
+
+			// settings.attributes.permitNull check
+			if(!settings.attributes[attribute].permitNull) {
+				if(attributeDatatype === 'null') {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry values provided has failed to pass the 'permitNull' setting at attribute ${attribute} ` +
+						`for collection ${collection}. The attribute value must not equal null.`
+					);
+					return false;
+				}
+			}
+
+			// settings.attributes.domain check
+			if(attributeDatatype === 'number' && settings.attributes[attribute].domain !== false) {
+				const entryVal = entry[attribute];
+				const lower = settings.attributes[attribute].domain.lower || -Infinity;
+				const upper = settings.attributes[attribute].domain.upper || Infinity;
+
+				if(entryVal<lower || entryVal > upper) {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry values provided has failed to pass the 'domain' setting at attribute ${attribute} ` +
+						`for collection ${collection}. This attribute must be within the range of ${lower} ` +
+						`and ${upper}, inclusive. Provided value: ${entryVal}`
+					);
+					return false;
+				}
+			}
+
+			// settings.attributes.pattern check 
+			if(attributeDatatype === 'string' && settings.attributes[attribute].pattern !== false) {
+				const entryVal = entry[attribute];
+				const expression = new RegExp(settings.attributes[attribute].pattern);
+
+				if(!expression.test(entryVal)) {
+					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
+						`The entry values provided has failed to pass the 'domain' setting at attribute ${attribute} ` +
+						`for collection ${collection}. This attribute must match the provided RegExp pattern.`
+					);
+					return false;
+				}
+			}
+
+			// settings.attribute.validator check
+			if(settings.attributes[attribute].validator !== false) {
 				try{
 					if(settings.attributes[attribute].validator(entry[attribute]) !== true) {
 						this.logger.error(`Entry has failed to pass validation`, this.databaseName,
@@ -1151,35 +1370,19 @@ class Zani {
 		return true;
 	}
 
-	validateEntryUpdate(collection, entry, settings) {
-		// Collection wide checks
-		const id = entry._id;
-		const originalEntry = this.getEntry(collection, id);
-
-		const entryKeys = entry.keys();
-		const originalEntryKeys = originalEntry.keys();
-
-		// Settings.allowExtraAttributes check
-		if(update) {
-			if(!settings.allowExtraAttributes) {
-				for(const key in entryKeys) {
-					if(originalEntryKeys.includes(key)) continue;
-
-					if(settings.autofillAttributes) {
-						delete entry.key;
-						continue;
-					}
-
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry updates provided has failed to pass the 'allowExtraAttributes' setting at attribute ${key}` +
-						`for collection ${collection}. The original entry does not contain this attribute.`
-					);
-					return false;
-				}
-			}			
-		}
-	}
-
+	/** Check all values in collection of same attribute for uniqueness. Return true if unique, false otherwise.
+	 * 
+	 * This method utilizes indexing when applicable, otherwise brute force query approaches. This method is
+	 * equivalent to the query below.
+	 * 
+	 * @example
+	 * { attribute: {$eq: value}}
+	 * 
+	 * @param {string} collection - The name of the collection
+	 * @param {string} attribute - The attribute to compare
+	 * @param {any} value - The value to check for
+	 * @returns {boolean} - Result of validation
+	 */
 	validateEntryUnique(collection, attribute, value) {
 		// Indexed query
 		if(this.meta.collections[collection].indexed.includes(attribute)) {

@@ -22,10 +22,9 @@ async function main() {
 	- Test object nesting with more defined data. works as is now in non-indexed files
 	// */
 	var options = { 
-		attributeLock: true,
-		autofillAttributes: false,
+		autofillAttributes: 1,
 		attributes: {  
-			value: {},
+			value: {required: true},
 			val: {autofillValue: 0},
 			thing: {}
 		} 
@@ -33,7 +32,7 @@ async function main() {
 	db.configureCollectionOptions(options)
 	console.log(options);
 	console.log(
-		db.validateEntry('Testing', { _id: 12000,}, false, options),
+		db.validateEntry('Testing', { _id: 1000, value: 1}, true, options),
 	);
 
 	// await buildDatabase();
