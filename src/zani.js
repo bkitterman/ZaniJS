@@ -7,46 +7,49 @@ const ZaniLog = require('./zaniLog');
 const BPlusTree = require('./bPlusTree');
 const ZaniSemaphore = require('./zaniSemaphore');
 
-//TODO list in order of precedence
 /*
-	- Add indexing 
-		- Create system to allow for constraints to be placed on the attributes/collections
-			- Primary key, ranges, value types, etc.
-			- Stored in meta.collections as an array of objects (array[0] is primary key) with format
-				{
-					attribute: {
-						name: string
-						domain: {upper: num, lower: num}
-						primary: boolean
-						unique: boolean
-					}
-				}
-				--------------OR-------------
-				{
-					attribute: string (Name, for just the required fields)
-				}
-			- Consider adding foreign keys later?
-			- If it is within the meta.collections.attributes array, it is a required field. Constraints must always
-			  be upheld, no exceptions.
+* 	BIG HITTER TO-DOS
+	- CRUD
+	- Write buffering (ZaniLOG included, causes EMFILE without it)
+
+*	NEEDED ITEMS OR FEATURES
+	- Check how erroring works
+		- Logging is great, but might be worth adding an option to create/throw custom errors
+			to halt programs/processes rather than just continue on so that users can catch/handle
+			and fix as they desire.
+		- Can be a toggle
+
+	- Query check to ensure its used properly. Assume proper use atm, not sure what it does if used wrong
 	- Add event emitters to allow for user-definition of activities, publish-subscribe system. 
 		- Consider this for logging
-	- Create a MD documentation of query to follow
-	- implement .trash folder later for safer deletion of items
-	- Clean up code
-	- Optimize where needed
+
+	- implement .trash folder for safer deletion of items
+
 	- Add function that creates a txt file of the attributes within each collection, like a meta.pdf
 		- To build on a method that returns a json of values (IE {value: number, obj: {n: string}})
-	- Create options for collections, such as deduplication, unique, constraints, domains
-	- Add a repair meta method in case of entries becoming out of sync with files
-	- Add a repair collection file in case of formatting error (IE formatted file, breaking line/entry)
+
 	- Add a function that exports an entire database into a single file
 		- Requires a export() function to build file from data
 		- Requires a import() function to build project from data file
-	- Consider a terminal-listener for real time data modification and access
+	
 	- Add a system to allow for control over CPU/resource utilization
 		- Light (1) - 33% at most
 		- Medium (2) - 66% at most
 		- Heavy (3) - 100% at most
+
+*	CONSIDERATIONS
+	- Consider adding foreign keys later to constraints?
+	- COnsider adding $max, $min, $mean... Statistical query functions alongside $count
+
+	- Consider a terminal-listener for real time data modification and access
+
+*	DOCUMENTATION 
+	- Create a MD documentation of query to follow
+
+* 	DEVELOPMENT ITEMS
+	- Clean up code
+	- Optimize where needed
+		- Reduce guardrails and such to reduce operation time
 */
 
 /** A lightweight, out-of-memory NoSQL Document Store database system.
@@ -496,7 +499,7 @@ class Zani {
 					if(!options.attributes[key].domain.hasOwnProperty('lower')) 
 						options.attributes[key].domain.lower = false;
 					if(!options.attributes[key].domain.hasOwnProperty('upper')) 
-						options.attributes[key].domain.lower = false;
+						options.attributes[key].domain.upper = false;
 				} else options.attributes[key].domain = false;
 
 				if(!options.attributes[key].hasOwnProperty('enum')) options.attributes[key].enum = false;
@@ -803,6 +806,25 @@ class Zani {
 
 		// File does not exist
 		return null;
+	}
+
+	/** Read a batch of entry files in parallel, but throttle the number of concurrent reads.
+	 * 
+	 * @param {string} collection - The collection name
+	 * @param {number[]} ids - Array of entry IDs to read
+	 * @param {number} batchSize - Max number of files to read in parallel
+	 * @returns {Promise<object[]>} - Array of entry objects (null for missing)
+	 */
+	async batchReadEntries(collection, ids, batchSize = 20) {
+		const results = [];
+		for (let i = 0; i < ids.length; i += batchSize) {
+			const batch = ids.slice(i, i + batchSize);
+			const batchResults = await Promise.all(
+				batch.map(id => this.getEntryAsync(collection, id))
+			);
+			results.push(...batchResults);
+		}
+		return results;
 	}
 
 	/** Given a collection name, update a desired entry. These updates are made through the object passed, which
@@ -1428,13 +1450,12 @@ class Zani {
 					that pass each condition at condition instead of value. Stores their ids
 					IE {value: 5} in results equal {value: set(entry1, entry2, ...)}
 		- Conduct logical operators based on result objects (1 per indexed/non-indexed queries)
-		- TODO Groupby(?) cases
+		- TODO Group by(?) cases
 		- Read entries into results set
 		- Projection
 		- Sorting
 	*/
 
-	//TODO create a single object variant
 	/** Perform a query operation on the collection provided. This option of query is slow, and will search
 	 * each entry in the collection for each condition. This method is best used for indexing.
 	 *
@@ -1516,24 +1537,19 @@ class Zani {
 		this.logger.log(`Reading entries from query`);
 		const readingStart = Date.now();
 
-		const resultSize = resultSet.size;
-		const setIterator = resultSet[Symbol.iterator]();
-		for (let i = 0; i < resultSize; i++) {
-			await this.semaphore.acquire();
-			var element = await this.getEntryAsync(collection, setIterator.next().value);
-			this.semaphore.release();
-
+		const entries = await this.batchReadEntries(collection, resultSet, this.options.fileLimit);
+		for (const entry in entries) {
 			// For projections
 			if (projections.length > 0) {
-				for (const key in element) {
+				for (const key in entry) {
 					if (!projections.includes(key)) {
-						delete element[key];
+						delete entry[key];
 					}
 				}
 			}
 
 			// If it was the last key in element, remove by not adding it to array
-			if (Object.keys(element).length !== 0) results.push(element);
+			if (Object.keys(entry).length !== 0) results.push(element);
 		}
 
 		const readingTime = (Date.now() - start) / 1000;
@@ -2138,12 +2154,13 @@ class Zani {
 		if (Object.getOwnPropertyNames(query).length != 0) {
 			// Cycle through each entry, and compare to the query
 			var entryCount = this.getCollectionSize(collection);
-
+			const ids = [];
 			for (let i = 0; i < entryCount; i++) {
-				await this.semaphore.acquire();
-				const entry = await this.getEntryAsync(collection, i);
-				this.semaphore.release();
+				ids.push(i);
+			}
 
+			const entries = await this.batchReadEntries(collection, ids, this.options.fileLimit);
+			for (const entry of entries) {
 				if (entry === null) continue;
 
 				this.findFromNonIndexedRouter(query, entry, results);
