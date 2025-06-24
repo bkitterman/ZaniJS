@@ -3,14 +3,13 @@ const fs = require('fs');
 
 // Custom Import
 const Zani = require('./zani');
-const BPlusTree = require('./bPlusTree');
 
 /** This is a basic test file for ZaniJS to ensure it is functioning as intended.
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
 
-var db = new Zani('Test', { fileLimit: 100 });
+var db = new Zani(undefined, { fileLimit: 100, throwErrors: true, consoleOptions: { systemLog: false } });
 main();
 
 async function main() {
@@ -20,22 +19,8 @@ async function main() {
 	- Uppercase/lowercase on things like $gt -> $Gt/gT
 	- Query check, making sure things are used properly rather than just 'where they fit'
 	- Test object nesting with more defined data. works as is now in non-indexed files
-	// */
-	var options = { 
-		autofillAttributes: 1,
-		attributes: {  
-			value: {required: true},
-			val: {autofillValue: 0},
-			thing: {}
-		} 
-	};
-	db.configureCollectionOptions(options)
-	console.log(options);
-	console.log(
-		db.validateEntry('Testing', { _id: 1000, value: 1}, true, options),
-	);
-
-	// await buildDatabase();
+	*/
+	db.createCollection('Test');
 }
 
 async function buildDatabase() {

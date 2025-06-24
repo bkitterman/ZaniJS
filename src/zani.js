@@ -7,6 +7,20 @@ const ZaniLog = require('./zaniLog');
 const BPlusTree = require('./bPlusTree');
 const ZaniSemaphore = require('./zaniSemaphore');
 
+// Error Imports
+const NoActiveDatabaseError = require('./error/noActiveDatabaseError');
+const DeleteActiveDatabaseError = require('./error/deleteActiveDatabaseError');
+const CollectionAlreadyExistsError = require('./error/collectionAlreadyExistsError');
+const MissingParametersError = require('./error/missingParametersError');
+const AttributeAlreadyIndexedError = require('./error/attributeAlreadyIndexedError');
+const AttributeDepthExceededError = require('./error/attributeDepthExceededError');
+const NoAttributesError = require('./error/noAttributesError');
+const MissingEntryIdError = require('./error/missingEntryIdError');
+const EntryNotFoundError = require('./error/entryNotFoundError');
+const EntryValidationFailedError = require('./error/entryValidationFailedError');
+const CollectionFolderNotFound = require('./error/collectionFolderNotFound');
+const ValidatorFunctionError = require('./error/validatorFunctionError')
+
 /*
 * 	BIG HITTER TO-DOS
 	- CRUD
@@ -115,10 +129,11 @@ class Zani {
 
 	/** The options object used for settings of this class and its behavior. Can be set with {@link Zani#configureOptions} */
 	options = {
-		fileLimit: 100,
+		fileLimit: 20,
 		treeOrder: 100,
 		crashDetector: true,
 		smartIndexing: true,
+		throwErrors: true,
 		consoleOptions: {
 			systemLog: true,
 			consoleLog: true,
@@ -132,10 +147,11 @@ class Zani {
 	 * @param {string=} databaseName - The database to be opened or created
 	 * @param {object=} options - The options object
 	 *
-	 * @param {number} [options.fileLimit=100] - Defines how many files can be opened by the program at any given time.
+	 * @param {number} [options.fileLimit=20] - Defines how many files can be opened by the program at any given time.
 	 * @param {boolean} [options.crashDetector=true] - Enable crash detecting method to handle unexpected events, and log errors.
-	 * @param {number} [options.treeOrder] - Define the max number of entries in any node of any index tree.
-	 * @param {boolean} [options.smartIndexing] - When a value is queried 10 times, a index will be automatically created if not already present.
+	 * @param {number} [options.treeOrder=100] - Define the max number of entries in any node of any index tree.
+	 * @param {boolean} [options.smartIndexing=true] - When a value is queried 10 times, a index will be automatically created if not already present.
+	 * @param {boolean} [options.throwErrors=true] - If true, errors will be thrown instead of just logged.
 	 * @param {object} options.consoleOptions - Define the console options to be used by the logging object.
 	 *
 	 * @param {boolean} [options.consoleOptions.consoleLog=true] - Enable console logging
@@ -184,11 +200,12 @@ class Zani {
 	 *
 	 * @param {object} options - The new options to be used by Zani.
 	 *
-	 * @param {number} [options.fileLimit=100] - Defines how many files can be opened by the program at any given time.
+	 * @param {number} [options.fileLimit=20] - Defines how many files can be opened by the program at any given time.
 	 * @param {boolean} [options.crashDetector=true] - Enable crash detecting method to handle unexpected events, and log errors.
-	 * @param {number} [options.treeOrder] - Define the max number of entries in any node of any index tree.
-	 * @param {boolean} [options.smartIndexing] - When a value is queried 10 times, a index will be automatically created if not already present.
-	 *
+	 * @param {number} [options.treeOrder=100] - Define the max number of entries in any node of any index tree.
+	 * @param {boolean} [options.smartIndexing=true] - When a value is queried 10 times, a index will be automatically created if not already present.
+	 * @param {boolean} [options.throwErrors=true] - If true, errors will be thrown instead of just logged.
+	 * 
 	 * @param {object} options.consoleOptions - Define the console options to be used by the logging object.
 	 */
 	configureOptions(options) {
@@ -196,6 +213,7 @@ class Zani {
 		if (options.hasOwnProperty('crashDetector')) this.options.crashDetector = options.crashDetector;
 		if (options.hasOwnProperty('treeOrder')) this.options.treeOrder = options.treeOrder;
 		if (options.hasOwnProperty('smartIndexing')) this.options.smartIndexing = options.smartIndexing;
+		if (options.hasOwnProperty('throwErrors')) this.options.throwErrors = options.throwErrors;
 
 		if (options.hasOwnProperty('consoleOptions'))
 			this.logger.configureOptions(options.consoleOptions);
@@ -245,33 +263,20 @@ class Zani {
 	 * @param {string} databaseName - The name of the desired database to delete
 	 */
 	deleteDatabase(databaseName) {
-		// Ensure a value was passed.
-		if (!databaseName) {
-			this.logger.error(
-				`Cannot delete active database while it is open.`,
-				'DeleteDatabase',
-				`Attempted to close ${this.databaseName}, but is is currently the active database. Please close the database` +
-					`before attempting to delete it again using 'closeDatabase()' function`,
-			);
+		// Ensure a value was passed or the database is not the active one.
+		if (!databaseName || databaseName === this.databaseName) {
+			this.handleError(new DeleteActiveDatabaseError(this.databaseName || 'Database Undefined'));
 			return;
 		}
-		// Ensure the database is not the active one.
-		if (databaseName === this.databaseName) {
-			this.logger.error(
-				`Cannot delete active database while it is open.`,
-				'DeleteDatabase',
-				`Attempted to close ${databaseName}, but is is currently the active database. Please close the database` +
-					`before attempting to delete it again using 'closeDatabase()' function`,
-			);
-			return;
-		}
+
 		// Ensure the desired directory/database exists
 		if (!fs.existsSync(databaseName)) {
-			this.logger.error(`Database ${databaseName} does not exist.`, 'DeleteDatabase');
+			this.handleError(new DatabaseNotFoundError(databaseName, 'delete'));
 			return;
 		}
 
 		// Delete the database
+		//TODO make this async, use try-catch here
 		this.logger.warn('Deleting database ' + databaseName);
 		fs.rmSync(databaseName, { recursive: true });
 		this.logger.warn('Database deleted');
@@ -330,7 +335,7 @@ class Zani {
 
 		// Check if collection already exists
 		if(this.meta.collections.hasOwnProperty(collection)) {
-			this.logger.error(`The collection ${collection} already exists`, this.databaseName);
+			this.handleError(new CollectionAlreadyExistsError(collection, 'add/create'));
 			return;
 		}
 
@@ -399,10 +404,7 @@ class Zani {
 
 		// Check if a new name for the collection was provided
 		if (!newName) {
-			this.logger.error(
-				`No new collection name was provided to rename ${this.databaseName} to`,
-				this.databaseName,
-			);
+			this.handleError(new MissingParametersError('newName', 'updateCollection'));
 			return;
 		}
 
@@ -560,7 +562,7 @@ class Zani {
 
 		// Check if attribute was passed
 		if (!attribute) {
-			this.logger.error('No attribute name provided', this.databaseName);
+			this.handleError(new MissingParametersError('attribute', 'createIndex'));
 			return;
 		}
 
@@ -568,22 +570,14 @@ class Zani {
 
 		// Check if attribute is already indexed
 		if (fs.existsSync(indexPath)) {
-			this.logger.error(
-				`The attribute ${attribute} of ${collection} has already been indexed.`,
-				this.databaseName,
-			);
+			this.handleError(new AttributeAlreadyIndexedError(collection, attribute));
 			return;
 		}
 
 		// Check if attribute exceeds permissible indexing depth
 		const unflattenedAttribute = this.unflattenAttribute(attribute);
 		if (unflattenedAttribute.length > 2) {
-			this.logger.error(
-				`Object indexing depth exceeded`,
-				this.databaseName,
-				`The depth for attribute ${attribute} exceeds the limit of depth 2 with depth ` +
-					`${unflattenedAttribute.length}. No index can or will be created.`,
-			);
+			this.handleError(new AttributeDepthExceededError(unflattenedAttribute, 2, 'createIndex'));
 			return;
 		}
 
@@ -640,13 +634,13 @@ class Zani {
 
 		// Check if entry value was passed
 		if (!entry) {
-			this.logger.error(`No entry value was passed.`, this.databaseName);
+			this.handleError(new MissingParametersError('entry', 'addEntry'));
 			return;
 		}
 
 		// Check the entry is not empty
 		if (Object.keys(entry).length === 0) {
-			this.logger.error(`The entry value passed has no attributes.`, this.databaseName);
+			this.handleError(new NoAttributesError('addEntry'));
 			return;
 		}
 
@@ -728,7 +722,7 @@ class Zani {
 
 		// Check if entry value was passed
 		if (!entryId) {
-			this.logger.error(`No entry value was passed.`, this.databaseName);
+			his.handleError(new MissingParametersError('entry', 'deleteEntry'));
 			return false;
 		}
 
@@ -773,7 +767,7 @@ class Zani {
 
 		// Check if a line number was passed
 		if (id === undefined) {
-			this.logger.error(`No entry id provided.`, this.databaseName);
+			this.handleError(new MissingParametersError('id', 'getEntry'));
 			return;
 		}
 
@@ -799,7 +793,7 @@ class Zani {
 				const data = await fsPromises.readFile(path, 'utf8');
 				return JSON.parse(data);
 			} catch (err) {
-				this.logger.error(err);
+				this.logger.error(err); 
 				return null;
 			}
 		}
@@ -849,32 +843,26 @@ class Zani {
 
 		// Check for updatesToMake
 		if (!updatesToMake) {
-			this.logger.error(`No update request provided. No changes made.`, this.databaseName);
+			this.handleError(new MissingParametersError('updatesToMake', 'updateEntry'));
 			return;
 		}
 
 		// Check the entry is not empty
 		if (Object.keys(updatesToMake).length === 0) {
-			this.logger.error(`The updatesToMake value passed has no attributes.`, this.databaseName);
+			this.handleError(new NoAttributesError('updateEntry'));
 			return;
 		}
 
 		// Check updatesToMake has _id
 		if (updatesToMake._id === undefined) {
-			this.logger.error(
-				`The updatesToMake value passed has no '_id' attribute.`,
-				this.databaseName,
-			);
+			this.handleError(new MissingEntryIdError('updateEntry'));
 			return;
 		}
 
 		// Check if file exists
 		var entry = this.getEntry(collection, updatesToMake._id);
 		if (entry === null) {
-			this.logger.error(
-				`The entry ${updatesToMake._id} does not exist within the collection ${collection}`,
-				this.databaseName,
-			);
+			this.handleError(new EntryNotFoundError(collection, updatesToMake._id, 'update'));
 			return;
 		}
 
@@ -1005,11 +993,7 @@ class Zani {
 						});
 					}
 				}else {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry provided has failed to pass the 'attributeLock' setting at attribute(s)` +
-						`${invalidKeys.toString()} for collection ${collection}. The provided entry structure` +
-						`defined in the collection settings does not align with the provided entry's structure.`
-					);
+					this.handleError(new EntryValidationFailedError(collection, invalidKeys.toString(), 'attributeLock', true, 'Missing attributes'));
 					return false;
 				}
 			}
@@ -1024,11 +1008,7 @@ class Zani {
 						if(!setDifference.has(key)) delete entry[key];
 					}
 				}else {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry values provided has failed to pass the 'attributeLock' setting due to` +
-						`having extra attributes for collection ${collection}. The provided entry structure` +
-						`defined in the collection settings does not align with the provided entry's structure.`
-					);
+					this.handleError(new EntryValidationFailedError(collection, 'Extra Attributes', 'attributeLock', true, 'Extra attributes'));
 					return false;
 				}
 			}
@@ -1049,10 +1029,8 @@ class Zani {
 						});
 						continue;
 					} else {
-						this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-							`The entry values provided has failed to pass the 'required' setting at attribute ${attribute} ` +
-							`for collection ${collection}. This attribute must be present in the entry.`
-						);
+						this.handleError(new EntryValidationFailedError(
+							collection, attribute, 'required', true, 'Missing attribute'));
 						return false;
 					}
 				}
@@ -1062,10 +1040,8 @@ class Zani {
 			if(settings.attributes[attribute].enum !== false) {
 				if(settings.attributes[attribute].enum.length !== 0) {
 					if(!settings.attributes[attribute].enum.includes(entry[attribute])) {
-						this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-							`The entry values provided has failed to pass the 'enum' setting at attribute ${attribute} ` +
-							`for collection ${collection}. This attribute value must be present in the enum setting.`
-						);
+						this.handleError(new EntryValidationFailedError(
+							collection, attribute, 'enum', settings.attributes[attribute].enum, entry[attribute]));
 						return false;
 					} else {
 						continue;
@@ -1086,11 +1062,8 @@ class Zani {
 			const attributeDatatype = this.getAttributeDataType(entry[attribute]);
 			if(settings.attributes[attribute].dataType !== false) {
 				if(attributeDatatype !== settings.attributes[attribute].dataType) {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry values provided has failed to pass the 'datatype' setting at attribute ${attribute} ` +
-						`for collection ${collection}. This attribute must be ` +
-						`${settings.attributes[attribute].dataType}.`
-					);
+					this.handleError(new EntryValidationFailedError(
+						collection, attribute, 'dataType', settings.attributes[attribute].dataType, attributeDatatype));
 					return false;
 				}
 			}
@@ -1098,10 +1071,8 @@ class Zani {
 			// settings.attributes.permitNull check
 			if(!settings.attributes[attribute].permitNull) {
 				if(attributeDatatype === 'null') {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry values provided has failed to pass the 'permitNull' setting at attribute ${attribute} ` +
-						`for collection ${collection}. The attribute value must not equal null.`
-					);
+					this.handleError(new EntryValidationFailedError(
+						collection, attribute, 'permitNull', false, 'null'));
 					return false;
 				}
 			}
@@ -1113,11 +1084,8 @@ class Zani {
 				const upper = settings.attributes[attribute].domain.upper || Infinity;
 
 				if(entryVal<lower || entryVal > upper) {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry values provided has failed to pass the 'domain' setting at attribute ${attribute} ` +
-						`for collection ${collection}. This attribute must be within the range of ${lower} ` +
-						`and ${upper}, inclusive. Provided value: ${entryVal}`
-					);
+					this.handleError(new EntryValidationFailedError(
+						collection, attribute, 'domain', settings.attributes[attribute].domain, entry[attribute]));
 					return false;
 				}
 			}
@@ -1128,10 +1096,8 @@ class Zani {
 				const expression = new RegExp(settings.attributes[attribute].pattern);
 
 				if(!expression.test(entryVal)) {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry values provided has failed to pass the 'domain' setting at attribute ${attribute} ` +
-						`for collection ${collection}. This attribute must match the provided RegExp pattern.`
-					);
+					this.handleError(new EntryValidationFailedError(
+						collection, attribute, 'pattern', settings.attributes[attribute].pattern, entry[attribute]));
 					return false;
 				}
 			}
@@ -1140,19 +1106,12 @@ class Zani {
 			if(settings.attributes[attribute].validator !== false) {
 				try{
 					if(settings.attributes[attribute].validator(entry[attribute]) !== true) {
-						this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-							`The entry values provided has failed to pass the 'validator' setting at attribute ${attribute} ` +
-							`for collection ${collection}. The value has failed the validator function.`
-						);
+						this.handleError(new EntryValidationFailedError(
+							collection, attribute, 'validator', settings.attributes[attribute].validator, entry[attribute]));
 						return false;
 					}
 				} catch(err) {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`An error has occurred at the 'validator' setting at attribute ${attribute} ` +
-						`for collection ${collection}. Please ensure the validator function is of return ` +
-						`type boolean, and expects only 1 parameter, as well as ensuring no errors could ` +
-						`occur at this function.\n\n Error caught: ${err}`
-					);
+					this.handleError(new ValidatorFunctionError(collection, attribute, err));
 					return false;
 				}
 			}
@@ -1160,10 +1119,8 @@ class Zani {
 			// Settings.attribute.unique check
 			if(settings.attributes[attribute].unique) {
 				if(!this.validateEntryUnique(collection, attribute, entry[attribute])) {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry values provided has failed to pass the 'unique' setting at attribute ${attribute} ` +
-						`for collection ${collection}.The value ${entry[attribute]} is already in use.`
-					);
+					this.handleError(new EntryValidationFailedError(
+						collection, attribute, 'unique', true, entry[attribute]));
 					return false;
 				}
 			}
@@ -1198,11 +1155,10 @@ class Zani {
 					delete entry[key];
 					continue;
 				}
-
-				this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-					`The entry updates provided has failed to pass the 'allowExtraAttributes' setting at attribute ${key}` +
-					`for collection ${collection}. The original entry does not contain this attribute.`
-				);
+				
+				this.handleError(new EntryValidationFailedError(
+					collection, key, 'allowExtraAttributes', false, 'Cannot add attribute'));
+					
 				return false;
 			}
 		}		
@@ -1226,11 +1182,9 @@ class Zani {
 						delete entry[key];
 					}
 				}else {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry updates provided has failed to pass the 'attributeLock' setting at attribute(s)` +
-						`${invalidKeys.toString()} for collection ${collection}. The provided entry structure` +
-						`defined in the collection settings does not align with the provided entry's structure.`
-					);
+					this.handleError(new EntryValidationFailedError(
+						collection, invalidKeys.toString(), 'attributeLock', true, 'Cannot add attribute'));
+					
 					return false;
 				}
 			}
@@ -1247,11 +1201,9 @@ class Zani {
 					delete entry[attribute];
 					continue;
 				} else {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-							`The entry update provided has failed to pass the 'immutable' setting at attribute ${attribute} ` +
-							`for collection ${collection}. This attribute cannot be changed.`
-						);
-						return false;
+					this.handleError(new EntryValidationFailedError(
+						collection, attribute, 'immutable', true, 'Cannot change this attribute'));
+					return false;
 				}
 			}
 			
@@ -1266,10 +1218,8 @@ class Zani {
 						});
 						continue;
 					} else {
-						this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-							`The entry values provided has failed to pass the 'required' setting at attribute ${attribute} ` +
-							`for collection ${collection}. This attribute must be present in the entry.`
-						);
+						this.handleError(new EntryValidationFailedError(
+							collection, attribute, 'required', true, 'Attempting to delete required attribute'));
 						return false;
 					}
 				}
@@ -1279,10 +1229,8 @@ class Zani {
 			if(settings.attributes[attribute].enum !== false) {
 				if(settings.attributes[attribute].enum.length !== 0) {
 					if(!settings.attributes[attribute].enum.includes(entry[attribute])) {
-						this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-							`The entry values provided has failed to pass the 'enum' setting at attribute ${attribute} ` +
-							`for collection ${collection}. This attribute value must be present in the enum setting.`
-						);
+						this.handleError(new EntryValidationFailedError(
+							collection, attribute, 'enum', settings.attributes[attribute].enum, entry[attribute]));
 						return false;
 					} else {
 						continue;
@@ -1303,11 +1251,8 @@ class Zani {
 			const attributeDatatype = this.getAttributeDataType(entry[attribute]);
 			if(settings.attributes[attribute].dataType !== false) {
 				if(attributeDatatype !== settings.attributes[attribute].dataType) {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry values provided has failed to pass the 'datatype' setting at attribute ${attribute} ` +
-						`for collection ${collection}. This attribute must be ` +
-						`${settings.attributes[attribute].dataType}.`
-					);
+					this.handleError(new EntryValidationFailedError(
+						collection, attribute, 'dataType', settings.attributes[attribute].dataType, attributeDatatype));
 					return false;
 				}
 			}
@@ -1315,10 +1260,8 @@ class Zani {
 			// settings.attributes.permitNull check
 			if(!settings.attributes[attribute].permitNull) {
 				if(attributeDatatype === 'null') {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry values provided has failed to pass the 'permitNull' setting at attribute ${attribute} ` +
-						`for collection ${collection}. The attribute value must not equal null.`
-					);
+					this.handleError(new EntryValidationFailedError(
+						collection, attribute, 'permitNull', false, 'null'));
 					return false;
 				}
 			}
@@ -1330,11 +1273,8 @@ class Zani {
 				const upper = settings.attributes[attribute].domain.upper || Infinity;
 
 				if(entryVal<lower || entryVal > upper) {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry values provided has failed to pass the 'domain' setting at attribute ${attribute} ` +
-						`for collection ${collection}. This attribute must be within the range of ${lower} ` +
-						`and ${upper}, inclusive. Provided value: ${entryVal}`
-					);
+					this.handleError(new EntryValidationFailedError(
+						collection, attribute, 'domain', settings.attributes[attribute].domain, entry[attribute]));
 					return false;
 				}
 			}
@@ -1345,10 +1285,8 @@ class Zani {
 				const expression = new RegExp(settings.attributes[attribute].pattern);
 
 				if(!expression.test(entryVal)) {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry values provided has failed to pass the 'domain' setting at attribute ${attribute} ` +
-						`for collection ${collection}. This attribute must match the provided RegExp pattern.`
-					);
+					this.handleError(new EntryValidationFailedError(
+						collection, attribute, 'pattern', settings.attributes[attribute].pattern, entry[attribute]));
 					return false;
 				}
 			}
@@ -1357,19 +1295,12 @@ class Zani {
 			if(settings.attributes[attribute].validator !== false) {
 				try{
 					if(settings.attributes[attribute].validator(entry[attribute]) !== true) {
-						this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-							`The entry values provided has failed to pass the 'validator' setting at attribute ${attribute} ` +
-							`for collection ${collection}. The value has failed the validator function.`
-						);
+						this.handleError(new EntryValidationFailedError(
+							collection, attribute, 'validator', settings.attributes[attribute].validator, entry[attribute]));
 						return false;
 					}
 				} catch(err) {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`An error has occurred at the 'validator' setting at attribute ${attribute} ` +
-						`for collection ${collection}. Please ensure the validator function is of return ` +
-						`type boolean, and expects only 1 parameter, as well as ensuring no errors could ` +
-						`occur at this function.\n\n Error caught: ${err}`
-					);
+					this.handleError(new ValidatorFunctionError(collection, attribute, err));
 					return false;
 				}
 			}
@@ -1377,10 +1308,8 @@ class Zani {
 			// Settings.attribute.unique check
 			if(settings.attributes[attribute].unique) {
 				if(!this.validateEntryUnique(collection, attribute, entry[attribute])) {
-					this.logger.error(`Entry has failed to pass validation`, this.databaseName,
-						`The entry values provided has failed to pass the 'unique' setting at attribute ${attribute} ` +
-						`for collection ${collection}.The value ${entry[attribute]} is already in use.`
-					);
+					this.handleError(new EntryValidationFailedError(
+						collection, attribute, 'unique', true, entry[attribute]));
 					return false;
 				}
 			}
@@ -3180,13 +3109,9 @@ class Zani {
 	 *
 	 * @returns {boolean}
 	 */
-	checkForActiveDatabase() {
+	checkForActiveDatabase(operation) {
 		if (!this.databaseName) {
-			this.logger.error(
-				'No active database.',
-				undefined,
-				'Please set an active database or create one using setDatabase()/useDatabase()',
-			);
+			this.handleError(new NoActiveDatabaseError(operation));
 			return false;
 		}
 		return true;
@@ -3198,15 +3123,17 @@ class Zani {
 	 * Note: if it is outside the scope of meta, it will not report true.
 	 *
 	 * @param {string} collection - The name of the collection
+	 * @param {string} method - In case of error, pass calling method
+	 * 
 	 * @returns {boolean} True if system is set and ready to be operated on, false otherwise
 	 */
-	checkForCollection(collection) {
+	checkForCollection(collection, method) {
 		// Check if active database
 		if (!this.checkForActiveDatabase()) return false;
 
 		// Check if a collection name was passed
 		if (!collection) {
-			this.logger.error('No collection name provided', this.databaseName);
+			this.handleError(new MissingParametersError('collection', method || "Unknown"));
 			return false;
 		}
 
@@ -3218,17 +3145,10 @@ class Zani {
 			if (fs.existsSync(`${this.databaseName}\\collections\\${collection}`)) return true;
 
 			// Log an error if it exists in meta but not in file.
-			this.logger.error(
-				`${collection} folder does not exist`,
-				'CollectionCheck',
-				`The collection exists in the meta.json file, but the collection storage folder, and thus, subsequent` +
-					`data files, cannot be located. \n\tError locating collection jsonl at ${path.join(
-						__dirname,
-						`${this.databaseName}\\collections\\${collection}.jsonl`,
-					)}`,
-			);
+			this.handleError(new CollectionFolderNotFound(collection, 
+				`${this.databaseName}\\collections\\${collection}`));
 		}
-		this.logger.error(`The collection ${collection} does not exist`, this.databaseName);
+		this.handleError(new CollectionFolderNotFound(collection, method));
 		return false;
 	}
 
@@ -3279,10 +3199,7 @@ class Zani {
 	compareObjects(obj1, obj2) {
 		// Check both objects are passed
 		if (obj1 === undefined || obj2 === undefined) {
-			this.logger.error(
-				`Either one or both objects are undefined, and cannot be compared`,
-				this.databaseName,
-			);
+			this.handleError(new MissingParametersError('obj1 OR obj2', 'compareObjects'));
 			return false;
 		}
 
@@ -3607,6 +3524,11 @@ class Zani {
 		}
 
 		this.logger.log(`Process Terminated`);
+	}
+
+	handleError(error) {
+		if(this.options.throwErrors) throw error;
+		else this.logger.error(error.message, this.databaseName || undefined);
 	}
 }
 
