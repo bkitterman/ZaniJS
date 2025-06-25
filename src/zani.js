@@ -18,7 +18,8 @@ const MissingEntryIdError = require('./error/missingEntryIdError');
 const EntryNotFoundError = require('./error/entryNotFoundError');
 const EntryValidationFailedError = require('./error/entryValidationFailedError');
 const CollectionFolderNotFound = require('./error/collectionFolderNotFound');
-const ValidatorFunctionError = require('./error/validatorFunctionError')
+const ValidatorFunctionError = require('./error/validatorFunctionError');
+const EventEmitter = require('events');
 
 /*
 * 	BIG HITTER TO-DOS
@@ -27,8 +28,6 @@ const ValidatorFunctionError = require('./error/validatorFunctionError')
 
 *	NEEDED ITEMS OR FEATURES
 	- Query check to ensure its used properly. Assume proper use atm, not sure what it does if used wrong
-	- Add event emitters to allow for user-definition of activities, publish-subscribe system. 
-		- Consider this for logging
 
 	- implement .trash folder for safer deletion of items
 
@@ -98,7 +97,9 @@ class Zani {
 	errorBound = this.crashDetectorError.bind(this);
 	/** Used for rejection handling */
 	rejectionBound = this.crashDetectorRejection.bind(this);
-
+	/** Instance of event emitter  */
+	emitter = new EventEmitter();
+	
 	/* --------------------------------- Aliases -------------------------------- */
 	setDatabase = this.useDatabase;
 	createDatabase = this.useDatabase;
@@ -109,6 +110,13 @@ class Zani {
 	search = this.find;
 	query = this.find;
 
+	on = this.emitter.on.bind(this.emitter);
+	off = this.emitter.off.bind(this.emitter);
+	once = this.emitter.once.bind(this.emitter);
+	removeAllListeners = this.emitter.removeAllListeners.bind(this.emitter);
+	emit = () => {};
+
+	
 	/* -------------------------------- Variables ------------------------------- */
 	/** The active database name. If undefined, no database is active. @*/
 	databaseName;
@@ -124,6 +132,7 @@ class Zani {
 		crashDetector: true,
 		smartIndexing: true,
 		throwErrors: true,
+		emitEvents: false,
 		consoleOptions: {
 			systemLog: true,
 			consoleLog: true,
@@ -162,12 +171,6 @@ class Zani {
 		process.on('SIGTERM', this.cleanupBound);
 		process.on('uncaughtException', this.cleanupBound);
 
-		// Set up any optional features
-		if (this.options.crashDetector) {
-			process.on('uncaughtException', this.errorBound);
-			process.on('unhandledRejection', this.rejectionBound);
-		}
-
 		// Set current database
 		if (databaseName) {
 			this.useDatabase(databaseName);
@@ -177,10 +180,12 @@ class Zani {
 			this.updateMetaFile();
 
 			this.logger.log(`Ready - ${this.databaseName}`);
+			this.emitter.emit('systemReady', {database: this.databaseName});
 			return;
 		}
 
 		this.logger.log('Ready - No database selected');
+		this.emitter.emit('systemReady', {database: false});
 	}
 
 	/** Configure the options variable to match the passed arguments. If consoleOptions is present, it will configure
@@ -193,6 +198,7 @@ class Zani {
 	 * @param {number} [options.treeOrder=100] - Define the max number of entries in any node of any index tree.
 	 * @param {boolean} [options.smartIndexing=true] - When a value is queried 10 times, a index will be automatically created if not already present.
 	 * @param {boolean} [options.throwErrors=true] - If true, errors will be thrown instead of just logged.
+	 * @param {boolean} [options.emitEvents=false] - Enable event emissions
 	 * 
 	 * @param {object} options.consoleOptions - Define the console options to be used by the logging object.
 	 */
@@ -202,9 +208,27 @@ class Zani {
 		if (options.hasOwnProperty('treeOrder')) this.options.treeOrder = options.treeOrder;
 		if (options.hasOwnProperty('smartIndexing')) this.options.smartIndexing = options.smartIndexing;
 		if (options.hasOwnProperty('throwErrors')) this.options.throwErrors = options.throwErrors;
+		if (options.hasOwnProperty('emitEvents')) this.options.emitEvents = options.emitEvents;
 
 		if (options.hasOwnProperty('consoleOptions'))
 			this.logger.configureOptions(options.consoleOptions);
+
+		// Set options
+		if (this.options.crashDetector) {
+			process.on('uncaughtException', this.errorBound);
+			process.on('unhandledRejection', this.rejectionBound);
+		} else {
+			process.off('uncaughtException');
+			process.off('unhandledRejection');
+		}
+
+		if (this.options.emitEvents) {
+			this.emit = this.emitter.emit.bind(this.emitter);
+		} else {
+			this.emit = () => {};
+		}
+
+		this.emitter.emit('zaniOptionsConfigured', options);
 	}
 
 	/* -------------------------------------------------------------------------- */
@@ -234,13 +258,16 @@ class Zani {
 		if (!this.databaseName) return;
 
 		this.logger.log('Closing database ' + this.databaseName);
+
 		//flush queue
 		//Checksum
+
 		this.meta.integrity.dirty = false;
 		this.updateMetaFile();
 		this.logger.setLogFile(undefined);
 		this.databaseName = undefined;
 		this.logger.log('Database closed');
+		this.emitter.emit('databaseClosed', {});
 	}
 
 	/** Delete the provided database via its name. This will not close the active database, regardless of passed
@@ -306,6 +333,7 @@ class Zani {
 		this.meta = JSON.parse(fs.readFileSync(this.databaseName + '\\meta.json'));
 
 		this.logger.log(`Connected to ${this.databaseName} at ${this.logger.getCurrentDate()}`);
+		this.emitter.emit('databaseSet', { databaseName: this.databaseName });
 	}
 
 	/* -------------------------------------------------------------------------- */
@@ -323,7 +351,7 @@ class Zani {
 
 		// Check if collection already exists
 		if(this.meta.collections.hasOwnProperty(collection)) {
-			this.handleError(new CollectionAlreadyExistsError(collection, 'add/create'));
+			this.handleError(new CollectionAlreadyExistsError(collection, 'add/createCollection'));
 			return;
 		}
 
@@ -348,6 +376,9 @@ class Zani {
 		this.updateMetaFile();
 
 		this.logger.log(`Added collection ${collection} to ${this.databaseName}`);
+		this.emitter.emit('collectionAdded', {
+			collection: collection, options: options, databaseName: this.databaseName 
+		});
 	}
 
 	/** Removes a collection from the database. This includes deleting the file and updating the metadata of
@@ -359,7 +390,7 @@ class Zani {
 	 */
 	removeCollection(collection) {
 		// Check if system is ready
-		if (!this.checkForCollection(collection, 'remove')) return;
+		if (!this.checkForCollection(collection, 'removeCollection')) return;
 
 		// Update metadata, remove collection
 		if (this.meta.collections[collection]) {
@@ -379,6 +410,9 @@ class Zani {
 			fs.rmSync(`${this.databaseName}\\indexes\\${collection}`, { recursive: true, force: true });
 
 		this.logger.log(`Deleted collection ${collection}`, this.databaseName);
+		this.emitter.emit('collectionRemoved', {
+			collection: collection, databaseName: this.databaseName 
+		});
 	}
 
 	/** Renames the supplied collection with the provided name. This includes metadata and file name updates.
@@ -388,7 +422,7 @@ class Zani {
 	 */
 	updateCollection(collection, newName) {
 		// Check if system is ready
-		if (!this.checkForCollection(collection, 'update')) return;
+		if (!this.checkForCollection(collection, 'updateCollection')) return;
 
 		// Check if a new name for the collection was provided
 		if (!newName) {
@@ -418,6 +452,9 @@ class Zani {
 		this.updateMetaFile();
 
 		this.logger.log(`Renamed collection ${collection} to ${newName}`, this.databaseName);
+		this.emitter.emit('collectionUpdated', {
+			collection: collection, newName: newName, databaseName: this.databaseName 
+		});
 	}
 
 	/** Returns the entire collection as object[].
@@ -428,19 +465,23 @@ class Zani {
 	 * @param {string} collection - The collection to retrieve
 	 * @returns The collection array of objects
 	 */
-	getCollection(collection) {
+	async getCollection(collection) {
 		// Check if system is ready
-		if (!this.checkForCollection(collection, 'get')) return;
+		if (!this.checkForCollection(collection, 'getCollection')) return;
 
 		// TODO add buffer here later
 		const collectionSize = this.getCollectionSize(collection);
 		var results = [];
 
-		for (let i = 0; i < collectionSize; i++) {
-			var entry = this.getEntry(collection, i);
-			if (entry !== null) results.push(entry);
+		var entries = await this.batchReadEntries(collection, collectionSize, this.options.fileLimit);
+		for (const entry of entries) {
+			if (entry !== null) 
+				results.push(entry);
 		}
 
+		this.emitter.emit('collectionGet', {
+			collection: collection, options: this.getCollectionSettings(collection), databaseName: this.databaseName 
+		});
 		return results;
 	}
 
@@ -510,6 +551,9 @@ class Zani {
 			}
 		}else options.attributes = {};
 
+		this.emitter.emit('collectionOptionsConfigured', { 
+			collection: collection, options: options, defaultIndexes: defaultIndexes, database: this.databaseName
+		});
 		return defaultIndexes;
 	}
 
@@ -547,6 +591,9 @@ class Zani {
 	async createIndex(collection, attribute) {
 		// Check if system is ready
 		if (!this.checkForCollection(collection, 'createIndex')) return;
+		const startTime = Date.now();
+
+		this.emitter.emit('indexCreation_Progress', 'Creating Index');
 
 		// Check if attribute was passed
 		if (!attribute) {
@@ -559,6 +606,7 @@ class Zani {
 		// Check if attribute is already indexed
 		if (fs.existsSync(indexPath)) {
 			this.handleError(new AttributeAlreadyIndexedError(collection, attribute));
+			this.emitter.emit('indexCreation_Progress', 'Canceled');
 			return;
 		}
 
@@ -566,6 +614,7 @@ class Zani {
 		const unflattenedAttribute = this.unflattenAttribute(attribute);
 		if (unflattenedAttribute.length > 2) {
 			this.handleError(new AttributeDepthExceededError(unflattenedAttribute, 2, 'createIndex'));
+			this.emitter.emit('indexCreation_Progress', 'Canceled');
 			return;
 		}
 
@@ -575,11 +624,14 @@ class Zani {
 		// Create the BPlusTree structure
 		//TODO update when the index files are included in BPlusTree.
 		var indexTree = new BPlusTree(indexPath, 100);
-		var collectionSize = this.getCollectionSize(collection);
 		this.meta.collections[collection].indexed.push(attribute);
 
 		// Check each entry for the attribute. If it exists, add to the tree.
+		
+		this.emitter.emit('indexCreation_Progress', 'Reading Entries');
 		const entries = await this.batchReadEntries(collection, resultSet, this.options.fileLimit);
+		
+		this.emitter.emit('indexCreation_Progress', 'Building Index');
 		for (const entry of entries) {
 			var hasProperty = true;
 
@@ -602,7 +654,15 @@ class Zani {
 			}
 		}
 
+		const endTime = Date.now();
 		this.logger.log(`Created index files for ${attribute}`, this.databaseName);
+		this.emitter.emit('indexCreation_Progress', 'Index Created');
+		this.emitter.emit('indexCreated', {
+			attribute: attribute, 
+			collection: collection, 
+			time: this.calculateTime(startTime, endTime), 
+			databaseName: this.databaseName 
+		});
 	}
 
 	/* -------------------------------------------------------------------------- */
@@ -680,6 +740,10 @@ class Zani {
 		}
 
 		this.logger.log(`Added entry: ${id} to ${collection}`, this.databaseName);
+		this.emitter.emit('entryAdded', {
+			entry: entry, collection: collection, databaseName: this.databaseName 
+
+		});
 	}
 
 	/** Delete an entry from the provided collection via its entry id, which is denoted as the attribute '_id".
@@ -720,6 +784,9 @@ class Zani {
 		}
 
 		this.logger.log(`Deleted ${entryId} from ${collection}`, this.databaseName);
+		this.emitter.emit('entryDeleted', {
+			entry: entryObject, collection: collection, databaseName: this.databaseName 
+		});
 
 		return true;
 	}
@@ -745,6 +812,9 @@ class Zani {
 
 		// Read file contents
 		const path = this.getEntryPath(collection, id);
+		this.emitter.emit('entryGet', {
+			entry: entry | null, collection: collection, databaseName: this.databaseName 
+		});
 		if (fs.existsSync(path)) return JSON.parse(fs.readFileSync(path));
 
 		// File does not exist due to deletion or error
@@ -782,6 +852,7 @@ class Zani {
 	 * @returns {Promise<object[]>} - Array of entry objects (null for missing)
 	 */
 	async batchReadEntries(collection, ids, batchSize = 20) {
+		const start = Date.now();
 		const results = [];
 		for (let i = 0; i < ids.length; i += batchSize) {
 			const batch = ids.slice(i, i + batchSize);
@@ -790,6 +861,11 @@ class Zani {
 			);
 			results.push(...batchResults);
 		}
+		const end = Date.now();
+		this.emitter.emit('collectionFullRead', { 
+			collection: collection, databaseName: this.databaseName, time: this.calculateTime(start, end) 
+		});
+		
 		return results;
 	}
 
@@ -867,6 +943,8 @@ class Zani {
 		}
 
 		this.logger.log(`Updated entry ${entry._id} in collection ${collection}`, this.databaseName);
+		this.emitter.emit('entryUpdated', {entry: entry, collection: collection, databaseName: this.databaseName });
+		
 	}
 
 	/** Helper method for {@link Zani#updateEntry} that performs that actual object updates through recursion.
@@ -1368,15 +1446,22 @@ class Zani {
 	 */
 	async find(collection, query, project, sort) {
 		this.logger.log(`Starting query of ${collection}`);
+		this.emitter.emit('query_Progress', 'Query Started');
+		
 		const start = Date.now();
 
 		// Check if system is ready
-		if (!this.checkForCollection(collection, 'find')) return;
+		if (!this.checkForCollection(collection, 'find')) {
+			this.emitter.emit('query_Progress', 'Canceled');
+			return;
+		}
 
 		var results = [];
 		var queries = { indexed: {}, notIndexed: {}, depth: [] };
 
 		// Build 2 query objects, one for the indexed values and one for the non-indexed values
+		
+		this.emitter.emit('query_Progress', 'Building Query');
 		if (!query) {
 			results = this.getCollection(collection);
 		} else {
@@ -1412,6 +1497,7 @@ class Zani {
 		*/
 
 		// Dispatch queries
+		this.emitter.emit('query_Progress', 'Querying Collection');
 		const [indexedResults, nonIndexedResults] = await Promise.all([
 			this.findFromIndexed(collection, queries.indexed),
 			this.findFromNonIndexed(collection, queries.notIndexed),
@@ -1423,6 +1509,7 @@ class Zani {
 		var projections = [];
 		//! Only can handle up to depth 1
 		if (project) {
+			this.emitter.emit('query_Progress', 'Projecting Results');
 			// Extract projection keys, and add to array if desired to keep
 			Object.getOwnPropertyNames(project).forEach((element) => {
 				if (project[element] === 1) {
@@ -1434,9 +1521,8 @@ class Zani {
 			if (!project.hasOwnProperty('_id')) projections.push('_id');
 		}
 
-		// Build results array
-		this.logger.log(`Reading entries from query`);
-		const readingStart = Date.now();
+		// Build results array		
+		this.emitter.emit('query_Progress', 'Reading Entries');
 
 		const entries = await this.batchReadEntries(collection, resultSet, this.options.fileLimit);
 		for (const entry in entries) {
@@ -1453,11 +1539,9 @@ class Zani {
 			if (Object.keys(entry).length !== 0) results.push(element);
 		}
 
-		const readingTime = (Date.now() - start) / 1000;
-		this.logger.log(`Reading entries complete in ${readingTime}`);
-
 		//! Can only handle up to depth 1
 		if (sort) {
+			this.emitter.emit('query_Progress', 'Sorting Results');
 			results = results.sort((a, b) => {
 				for (const key in sort) {
 					// Ascending
@@ -1484,6 +1568,7 @@ class Zani {
 
 		// if smart indexing is enabled, check through here.
 		if (this.options.smartIndexing) {
+		  	this.emitter.emit('query_Progress', 'Smart Indexing Results');
 			this.smartIndex(collection, query);
 
 			// Create indexes if needed
@@ -1496,8 +1581,16 @@ class Zani {
 		}
 
 		const end = Date.now();
-		const totalTime = (end - start) / 1000;
+		const totalTime = this.calculateTime(start, end);
 		this.logger.log(`Query complete in ${totalTime} seconds`, this.databaseName);
+		this.emitter.emit('query_Progress', 'Query Complete');
+		this.emitter.emit('queryComplete', {
+			collection: collection, 
+			results: results, 
+			databaseName: this.databaseName,
+			time: totalTime, 
+			query: query
+		});
 		return results;
 	}
 
@@ -3376,6 +3469,17 @@ class Zani {
 		return `${this.databaseName}\\indexes\\${collection}\\${attribute}`;
 	}
 
+	/** Calculate a time from MS into Seconds.
+	 * 
+	 * @param {number} start - The start time, in MS
+	 * @param {number} end - The end time, in MS
+	 * @returns {string} - The time elapsed in seconds
+	 */
+	calculateTime(start, end) {
+		return (end-start) / 1000;
+	}
+
+	
 	/* -------------------------------------------------------------------------- */
 	/*                               Set Operations                               */
 	/* -------------------------------------------------------------------------- */
@@ -3489,6 +3593,8 @@ class Zani {
 		process.off('SIGINT', this.cleanupBound);
 		process.off('SIGTERM', this.cleanupBound);
 		process.off('uncaughtException', this.cleanupBound);
+		
+		this.emitter.removeAllListeners();
 
 		if (this.options.crashDetector) {
 			process.off('uncaughtException', this.errorBound);
