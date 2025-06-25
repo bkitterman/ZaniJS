@@ -5,7 +5,6 @@ const fsPromises = require('fs/promises');
 // Custom Imports
 const ZaniLog = require('./zaniLog');
 const BPlusTree = require('./bPlusTree');
-const ZaniSemaphore = require('./zaniSemaphore');
 
 // Error Imports
 const NoActiveDatabaseError = require('./error/noActiveDatabaseError');
@@ -27,12 +26,6 @@ const ValidatorFunctionError = require('./error/validatorFunctionError')
 	- Write buffering (ZaniLOG included, causes EMFILE without it)
 
 *	NEEDED ITEMS OR FEATURES
-	- Check how erroring works
-		- Logging is great, but might be worth adding an option to create/throw custom errors
-			to halt programs/processes rather than just continue on so that users can catch/handle
-			and fix as they desire.
-		- Can be a toggle
-
 	- Query check to ensure its used properly. Assume proper use atm, not sure what it does if used wrong
 	- Add event emitters to allow for user-definition of activities, publish-subscribe system. 
 		- Consider this for logging
@@ -53,7 +46,7 @@ const ValidatorFunctionError = require('./error/validatorFunctionError')
 
 *	CONSIDERATIONS
 	- Consider adding foreign keys later to constraints?
-	- COnsider adding $max, $min, $mean... Statistical query functions alongside $count
+	- Consider adding $max, $min, $mean... Statistical query functions alongside $count
 
 	- Consider a terminal-listener for real time data modification and access
 
@@ -124,9 +117,6 @@ class Zani {
 	/** Instance of ZaniLog used for console and system logging. */
 	logger;
 
-	/** Instance of ZaniSemaphore to ensure file overhead is not exceeded */
-	semaphore;
-
 	/** The options object used for settings of this class and its behavior. Can be set with {@link Zani#configureOptions} */
 	options = {
 		fileLimit: 20,
@@ -177,8 +167,6 @@ class Zani {
 			process.on('uncaughtException', this.errorBound);
 			process.on('unhandledRejection', this.rejectionBound);
 		}
-
-		this.semaphore = new ZaniSemaphore(this.options.fileLimit);
 
 		// Set current database
 		if (databaseName) {
@@ -371,7 +359,7 @@ class Zani {
 	 */
 	removeCollection(collection) {
 		// Check if system is ready
-		if (!this.checkForCollection(collection)) return;
+		if (!this.checkForCollection(collection, 'remove')) return;
 
 		// Update metadata, remove collection
 		if (this.meta.collections[collection]) {
@@ -400,7 +388,7 @@ class Zani {
 	 */
 	updateCollection(collection, newName) {
 		// Check if system is ready
-		if (!this.checkForCollection(collection)) return;
+		if (!this.checkForCollection(collection, 'update')) return;
 
 		// Check if a new name for the collection was provided
 		if (!newName) {
@@ -442,7 +430,7 @@ class Zani {
 	 */
 	getCollection(collection) {
 		// Check if system is ready
-		if (!this.checkForCollection(collection)) return;
+		if (!this.checkForCollection(collection, 'get')) return;
 
 		// TODO add buffer here later
 		const collectionSize = this.getCollectionSize(collection);
@@ -531,7 +519,7 @@ class Zani {
 	 * @returns {object} - The collection settings object
 	 */
 	getCollectionSettings(collection) {
-		if (!this.checkForCollection(collection)) return;
+		if (!this.checkForCollection(collection, 'getSettings')) return;
 
 		return JSON.parse(fs.readFileSync(`${this.databaseName}\\collections\\${collection}\\meta.json`))
 	}
@@ -558,7 +546,7 @@ class Zani {
 	 */
 	async createIndex(collection, attribute) {
 		// Check if system is ready
-		if (!this.checkForCollection(collection)) return;
+		if (!this.checkForCollection(collection, 'createIndex')) return;
 
 		// Check if attribute was passed
 		if (!attribute) {
@@ -591,11 +579,9 @@ class Zani {
 		this.meta.collections[collection].indexed.push(attribute);
 
 		// Check each entry for the attribute. If it exists, add to the tree.
-		for (let i = 0; i < collectionSize; i++) {
+		const entries = await this.batchReadEntries(collection, resultSet, this.options.fileLimit);
+		for (const entry of entries) {
 			var hasProperty = true;
-			await this.semaphore.acquire();
-			let entry = await this.getEntryAsync(collection, i);
-			this.semaphore.release();
 
 			// Prevent fragmentation from throwing system off
 			if (entry === null) continue;
@@ -630,7 +616,7 @@ class Zani {
 	 */
 	addEntry(collection, entry) {
 		// Check if system is ready
-		if (!this.checkForCollection(collection)) return;
+		if (!this.checkForCollection(collection, 'addEntry')) return;
 
 		// Check if entry value was passed
 		if (!entry) {
@@ -643,20 +629,6 @@ class Zani {
 			this.handleError(new NoAttributesError('addEntry'));
 			return;
 		}
-
-		//! Fix this into rest of code O(n)
-		// // Check that there are no empty values in entry
-		// for (const key in entry) {
-		// 	if (entry[key] === undefined) {
-		// 		this.logger.error(
-		// 			`Entry value passed contains empty value(s).`,
-		// 			this.databaseName,
-		// 			`The value ${key} in entry is undefined. Please ensure all attributes in the entry contain one of the following:` +
-		// 				`an array, object, number, boolean, or string.`,
-		// 		);
-		// 		return;
-		// 	}
-		// }
 
 		// Get metadata index, _id for entry
 		let id = 0;
@@ -718,7 +690,7 @@ class Zani {
 	 */
 	deleteEntry(collection, entryId) {
 		// Check if system is ready
-		if (!this.checkForCollection(collection)) return;
+		if (!this.checkForCollection(collection, 'deleteEntry')) return;
 
 		// Check if entry value was passed
 		if (!entryId) {
@@ -763,7 +735,7 @@ class Zani {
 	 */
 	getEntry(collection, id) {
 		// Check if system is ready
-		if (!this.checkForCollection(collection)) return;
+		if (!this.checkForCollection(collection, 'getEntry')) return;
 
 		// Check if a line number was passed
 		if (id === undefined) {
@@ -839,7 +811,7 @@ class Zani {
 	 */
 	updateEntry(collection, updatesToMake) {
 		// Check if system is ready
-		if (!this.checkForCollection(collection)) return;
+		if (!this.checkForCollection(collection, 'updateEntry')) return;
 
 		// Check for updatesToMake
 		if (!updatesToMake) {
@@ -961,7 +933,7 @@ class Zani {
 	 * @returns {boolean} - Result of validation against collection settings 
 	 */
 	validateEntry(collection, entry, update, settings) {
-		if(!this.checkForCollection(collection)) return false;
+		if(!this.checkForCollection(collection, 'validateEntry')) return false;
 		if(!settings) settings = this.getCollectionSettings(collection);
 
 		if(update) return this.validateEntryUpdate(collection, entry, settings);
@@ -1399,7 +1371,7 @@ class Zani {
 		const start = Date.now();
 
 		// Check if system is ready
-		if (!this.checkForCollection(collection)) return;
+		if (!this.checkForCollection(collection, 'find')) return;
 
 		var results = [];
 		var queries = { indexed: {}, notIndexed: {}, depth: [] };
