@@ -25,7 +25,6 @@ const EventEmitter = require('events');
 /*
 * 	BIG HITTER TO-DOS
 	- CRUD
-	- Pathing to specific destination
 	- Write bufferingZaniLOG, causes EMFILE without it)
 
 *	NEEDED ITEMS OR FEATURES
@@ -160,7 +159,7 @@ class Zani {
 	 */
 	constructor(databaseName, options) {
 		// Create logger object
-		this.logger = new ZaniLog(databaseName, this.options.consoleOptions, this.options.path | "./");
+		this.logger = new ZaniLog(databaseName, this.options.consoleOptions, options.path || this.options.path);
 		this.logger.log(`Loading`);
 
 		// Initial startup

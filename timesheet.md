@@ -48,3 +48,18 @@ Active: 3 Days
 - Updated outline of collection settings/constraints to match
 - Added entry insertion validation based on collection settings/constraints
 - Fought with git for 2 hours. Love this program
+
+### 22-29 June, 2025
+Total Time: 4 hours, 41 minutes
+Average: 1 hour, 32 minutes
+Active: 3 Days
+
+**Accomplished**
+- Completed entry insertion/update validation code and documentation markdown file in full
+- Added custom error classes and ability to choose between logging errors or throwing them
+- Added event emitters and toggle for user-made hooks
+
+### July 12, 2025
+With the addition of paths, Version 1.0 is released internally for use. 
+
+Zani JS is live!
