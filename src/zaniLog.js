@@ -34,6 +34,7 @@ class ZaniLog {
 
 	/** The options object used for settings of this class and its behavior. Can be set with {@link ZaniLog#configureOptions} */
 	options = {
+		path: '',
 		systemLog: true,
 		consoleLog: false,
 		colorful: false,
@@ -59,10 +60,12 @@ class ZaniLog {
 	 * @param {boolean} [options.consoleLog=true] - Enable console logging
 	 * @param {boolean} [options.systemLog=true] - Enable system logging to the specified file when available
 	 * @param {boolean} [options.colorful=true] - Enable colorful console output
+	 * @param {string} [options.path=''] - The log file path
 	 */
-	constructor(fileName, options) {
+	constructor(fileName, options, path) {
 		// Configure Options
 		if (options) this.configureOptions(options);
+		if (path) this.options.path = path;
 
 		// If a file is passed, set the log file
 		if (fileName) this.setLogFile(fileName);
@@ -93,7 +96,7 @@ class ZaniLog {
 	 */
 	setLogFile(fileName) {
 		if (!fileName) this.logFile = undefined;
-		else this.logFile = fileName + '\\logs\\audit.log';
+		else this.logFile = this.options.path + '\\' + fileName + '\\logs\\audit.log';
 	}
 
 	/** Set the source of the message for output. If source is not provided, it will default to 'Zani.'
