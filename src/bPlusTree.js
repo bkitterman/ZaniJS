@@ -1,5 +1,6 @@
 // Node Imports
 const fs = require('fs');
+const path = require('path');
 
 /** A simple node object for a BPlusTree.
  *
@@ -41,18 +42,21 @@ class BPlusTree {
 	 * @param {number} order - The order, or maximum number of keys, stored at any given node.
 	 */
 	constructor(path, order) {
-		this.path = path + '\\';
+		this.path = path;
 		this.meta.order = order || 100;
 
+		const metaPath = path.join(this.path, 'tree.json');
+
 		// Get meta data if it exists
-		if (fs.existsSync(this.path + 'tree.json')) {
-			this.meta = JSON.parse(fs.readFileSync(this.path + 'tree.json'));
+		if (fs.existsSync(metaPath)) {
+			this.meta = JSON.parse(fs.readFileSync(metaPath));
 		}
 		this.meta.nodeCount = this.meta.nodeCount || 1;
 		this.meta.root = this.meta.root || 0;
 
 		// Check root node, if undefined, create root node
-		if (!fs.existsSync(this.path + this.formatId(this.meta.root) + '.json')) {
+		const rootPath = path.join(this.path, this.formatId(this.meta.root)+'.json');
+		if (!rootPath) {
 			this.root = new bPlusTreeNode(true, 0);
 			this.saveNode(this.root);
 			this.saveMeta();
@@ -479,7 +483,7 @@ class BPlusTree {
 
 			// Push changes to disk
 			this.saveNode(leftSibling);
-			fs.unlinkSync(this.path + this.formatId(node.id) + '.json');
+			fs.unlinkSync(path.join(this.path, this.formatId(node.id)+'.json'));
 
 			// Update parent key after merge
 			if (index - 1 < parent.keys.length && parent.children[index]) {
@@ -501,7 +505,7 @@ class BPlusTree {
 
 			// Push changes to disk
 			this.saveNode(node);
-			fs.unlinkSync(this.path + this.formatId(rightSibling.id) + '.json');
+			fs.unlinkSync(path.join(this.path, this.formatId(node.id) + '.json'));
 
 			// Update parent key after merge
 			if (index < parent.keys.length && parent.children[index + 1]) {
@@ -557,7 +561,7 @@ class BPlusTree {
 			parent.children.splice(parentIndex, 1);
 
 			this.saveNode(leftSibling);
-			fs.unlinkSync(this.path + this.formatId(node.id) + '.json');
+			fs.unlinkSync(path.join(this.path, this.formatId(node.id) + '.json'));
 
 			// Update parent key after merge
 			if (parentIndex - 1 < parent.keys.length && parent.children[parentIndex]) {
@@ -571,7 +575,7 @@ class BPlusTree {
 			parent.children.splice(parentIndex + 1, 1);
 
 			this.saveNode(node);
-			fs.unlinkSync(this.path + this.formatId(rightSibling.id) + '.json');
+			fs.unlinkSync(path.join(this.path, this.formatId(node.id) + '.json'));
 
 			// Update parent key after merge
 			if (parentIndex < parent.keys.length && parent.children[parentIndex + 1]) {
@@ -623,7 +627,7 @@ class BPlusTree {
 	 * @param {object} node - The node object to be saved to disk/file
 	 */
 	saveNode(node) {
-		fs.writeFileSync(this.path + this.formatId(node.id) + '.json', JSON.stringify(node));
+		fs.writeFileSync(path.join(this.path, this.formatId(node.id) + '.json'), JSON.stringify(node));
 	}
 
 	/** Load the passed node ID into a node object from its file.
@@ -632,7 +636,7 @@ class BPlusTree {
 	 * @returns {object}
 	 */
 	loadNode(id) {
-		return JSON.parse(fs.readFileSync(this.path + this.formatId(id) + '.json'));
+		return JSON.parse(fs.readFileSync(path.join(this.path, this.formatId(node.id) + '.json')));
 	}
 
 	/** Return the id passed as a padding string of length 6.
@@ -651,7 +655,7 @@ class BPlusTree {
 
 	/** Push the current meta data object to its file tree.json. */
 	saveMeta() {
-		fs.writeFileSync(this.path + 'tree.json', JSON.stringify(this.meta));
+		fs.writeFileSync(path.join(this.path, `tree.json`), JSON.stringify(this.meta));
 	}
 }
 

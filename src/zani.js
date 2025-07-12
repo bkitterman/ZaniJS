@@ -350,14 +350,18 @@ class Zani {
 		}
 
 		// Create collection folder
-		fs.mkdirSync(`${this.options.path + this.databaseName}\\collections\\${collection}`);
+		const collectionPath = path.join(this.options.path, this.databaseName, `collections`, collection)
+		fs.mkdirSync(collectionPath);
 
 		// Create options object
 		const indexes = this.configureCollectionOptions(options);
-		fs.writeFileSync(`${this.options.path + this.databaseName}\\collections\\${collection}\\meta.json`, JSON.stringify(options));
+		const metaPath = path.join(collectionPath, 'meta.json')
+		fs.writeFileSync(metaPath, JSON.stringify(options));
 
 		// Create Collection Index Folder and any default collections
-		fs.mkdirSync(`${this.options.path + this.databaseName}\\indexes\\${collection}`);
+		const indexPath = path.join(this.options.path, this.databaseName, 'indexes', collection);
+		fs.mkdirSync(indexPath);
+		
 		for(const element of indexes) 
 			this.createIndex(collection, element);
 
@@ -393,15 +397,14 @@ class Zani {
 		}
 
 		// Delete the collection folder
-		if (fs.existsSync(`${this.options.path + this.databaseName}\\collections\\${collection}`))
-			fs.rmSync(`${this.options.path + this.databaseName}\\collections\\${collection}`, {
-				recursive: true,
-				force: true,
-			});
+		const collectionPath = path.join(this.options.path, this.databaseName, 'collections', collection);
+		if (fs.existsSync(collectionPath))
+			fs.rmSync(collectionPath, { recursive: true, force: true });
 
 		// Delete index files
-		if (fs.existsSync(`${this.options.path + this.databaseName}\\indexes\\${collection}`))
-			fs.rmSync(`${this.options.path + this.databaseName}\\indexes\\${collection}`, { recursive: true, force: true });
+		const indexPath = path.join(this.options.path, this.databaseName, 'indexes', collection);
+		if (fs.existsSync(indexPath))
+			fs.rmSync(indexPath, { recursive: true, force: true });
 
 		this.logger.log(`Deleted collection ${collection}`, this.databaseName);
 		this.emitter.emit('collectionRemoved', {
@@ -425,16 +428,14 @@ class Zani {
 		}
 
 		// Rename collection file
-		fs.renameSync(
-			`${this.options.path + this.databaseName}\\collections\\${collection}`,
-			`${this.options.path + this.databaseName}\\collections\\${newName}`,
-		);
+		const oldCollectionPath = path.join(this.options.path, this.databaseName, 'collections', collection);
+		const newCollectionPath = path.join(this.options.path, this.databaseName, 'collections', newName);
+		fs.renameSync(oldCollectionPath, newCollectionPath);
 
 		// Rename Index Folder
-		fs.renameSync(
-			`${this.options.path + this.databaseName}\\indexes\\${collection}`,
-			`${this.options.path + this.databaseName}\\indexes\\${newName}`,
-		);
+		const oldIndexPath = path.join(this.options.path, this.databaseName, 'indexes', collection);
+		const newIndexPath = path.join(this.options.path, this.databaseName, 'indexes', newName);
+		fs.renameSync(oldIndexPath, newIndexPath);
 
 		// Update metadata file, rename object associated
 		Object.defineProperty(this.meta.collections, newName, {
@@ -559,7 +560,7 @@ class Zani {
 	getCollectionSettings(collection) {
 		if (!this.checkForCollection(collection, 'getSettings')) return;
 
-		return JSON.parse(fs.readFileSync(`${this.options.path + this.databaseName}\\collections\\${collection}\\meta.json`))
+		return JSON.parse(fs.readFileSync(path.join(this.options.path, this.databaseName, 'collections', collection, 'meta.json')))
 	}
 
 	/* -------------------------------------------------------------------------- */
@@ -595,7 +596,7 @@ class Zani {
 			return;
 		}
 
-		const indexPath = `${this.options.path + this.databaseName}\\indexes\\${collection}\\${attribute}`;
+		const indexPath = path.join(this.options.path, this.databaseName, 'indexes', collection, attribute);
 
 		// Check if attribute is already indexed
 		if (fs.existsSync(indexPath)) {
@@ -715,19 +716,20 @@ class Zani {
 		if(!this.validateEntry(collection, entry, false, settings)) return;
 
 		// Add to collection
-		const path = `${this.options.path + this.databaseName}\\collections\\${collection}\\${this.getEntryFolder(id)}`;
-		const pathFile = this.getEntryPath(collection, id);
-		if (!fs.existsSync(path)) {
-			fs.mkdirSync(path);
+		const entryFolderPath = path.join(this.options.path, this.databaseName, 'collections', collection, this.getEntryFolder(id));
+		const entryFilePath = this.getEntryPath(collection, id);
+		if (!fs.existsSync(entryFolderPath)) {
+			fs.mkdirSync(entryFolderPath);
 		}
+		fs.writeFileSync(entryFilePath, JSON.stringify(entry));
 
-		fs.writeFileSync(pathFile, JSON.stringify(entry));
 		this.updateMetaFile();
 
 		// Add any values into their respective index
 		for (const key in entry) {
 			if (this.meta.collections[collection].indexed.includes(key)) {
-				const tree = new BPlusTree(`${this.options.path + this.databaseName}\\indexes\\${collection}\\${key}`);
+				const indexPath = path.join(this.options.path, this.databaseName, 'indexes', collection, key);
+				const tree = new BPlusTree(indexPath);
 				tree.insert(entry[key], entry._id);
 				this.logger.log(`Updated index of ${collection}\\${key} with value ${entry[key]}`);
 			}
@@ -736,7 +738,6 @@ class Zani {
 		this.logger.log(`Added entry: ${id} to ${collection}`, this.databaseName);
 		this.emitter.emit('entryAdded', {
 			entry: entry, collection: collection, databaseName: this.databaseName 
-
 		});
 	}
 
@@ -757,9 +758,9 @@ class Zani {
 		}
 
 		// Delete from collection file
-		const path = this.getEntryPath(collection, entryId);
-		const entryObject = JSON.parse(fs.readFileSync(path));
-		fs.unlinkSync(path);
+		const filePath = this.getEntryPath(collection, entryId);
+		const entryObject = JSON.parse(fs.readFileSync(filePath));
+		fs.unlinkSync(filePath);
 
 		// Add removed id to metadata
 		this.meta.collections[collection].availableIDs.push(entryId);
@@ -768,7 +769,8 @@ class Zani {
 		// Delete from index files
 		for (const key in entryObject) {
 			if (this.meta.collections[collection].indexed.includes(key)) {
-				const tree = new BPlusTree(`${this.options.path + this.databaseName}\\indexes\\${collection}\\${key}`);
+				const indexPath = path.join(this.options.path, this.databaseName, 'indexes', collection, key);
+				const tree = new BPlusTree(indexPath);
 				tree.delete(entryObject[key], entryId);
 				this.logger.log(
 					`Deleted ${entryId} of ${entryObject[key]} in index file for ${key}`,
@@ -931,7 +933,8 @@ class Zani {
 
 		// Update index file
 		for (const key in originalValues) {
-			const tree = new BPlusTree(`${this.databaseName}\\indexes\\${collection}\\${key}`);
+			 const indexPath = path.join(this.options.path, this.databaseName, 'indexes', collection, key);
+			const tree = new BPlusTree(indexPath);
 			if (originalValues[key] !== null) tree.delete(originalValues[key], entry._id);
 			if (entry.hasOwnProperty(key) && entry[key] !== null) tree.insert(entry[key], entry._id);
 		}
@@ -3201,7 +3204,8 @@ class Zani {
 
 		if (found) {
 			// Check if the collection file exists
-			if (fs.existsSync(`${this.options.path + this.databaseName}\\collections\\${collection}`)) 
+			const collectionPath = path.join(this.options.path, this.databaseName, 'collections', collection);
+			if (fs.existsSync(collectionPath)) 
 				return true;
 
 			// Log an error if it exists in meta but not in file.
@@ -3230,7 +3234,7 @@ class Zani {
 	getEntryPath(collection, id) {
 		const folder = this.getEntryFolder(id);
 		const formattedId = String(id).padStart(6, 0);
-		return `${this.options.path + this.databaseName}\\collections\\${collection}\\${folder}\\${formattedId}.json`;
+		return path.join(this.options.path, this.databaseName, 'collections', collection, folder, `${formattedId}.json`);
 	}
 
 	/** Return the folder name of the entry derived from the id.
@@ -3245,7 +3249,8 @@ class Zani {
 	/** Update the meta.json object for the active database with the current meta object instance.	 *
 	 */
 	updateMetaFile() {
-		fs.writeFileSync(this.options.path + this.databaseName + '\\meta.json', JSON.stringify(this.meta));
+		const metaPath = path.join(this.options.path, this.databaseName, 'meta.json');
+		fs.writeFileSync(metaPath, JSON.stringify(this.meta));
 	}
 
 	/** Compare two objects by all parameters, and then return true or false. It will first check by _id, and
@@ -3461,7 +3466,7 @@ class Zani {
 	getIndexPath(collection, attribute) {
 		if (Array.isArray(attribute)) attribute = this.flattenAttribute(attribute);
 
-		return `${this.options.path + this.databaseName}\\indexes\\${collection}\\${attribute}`;
+		return path.join(this.options.path, this.databaseName, `indexes`, collection, attribute);
 	}
 
 	/** Calculate a time from MS into Seconds.
@@ -3537,11 +3542,12 @@ class Zani {
 		);
 
 		// Create crash folder if not exists
-		if (!fs.existsSync(this.options.path + 'crashReports')) fs.mkdirSync(this.options.path + 'crashReports');
+		const errorPath = path.join(this.options.path, 'crashReports');
+		if (!fs.existsSync(errorPath)) fs.mkdirSync(errorPath);
 
 		// Create crash report
 		fs.writeFileSync(
-			`${this.options.path}crashReports\\crash-${Date.now()}.log`,
+			path.join(errorPath, `crash-${Date.now()}.log`),
 			`[${new Date().toISOString()}]\n${reason.stack}\n`,
 		);
 	}
@@ -3559,13 +3565,14 @@ class Zani {
 		);
 
 		// Create crash folder if not exists
-		if (!fs.existsSync(this.options.path + 'crashReports')) fs.mkdirSync(this.options.path + 'crashReports');
+		const errorPath = path.join(this.options.path, 'crashReports');
+		if (!fs.existsSync(errorPath)) fs.mkdirSync(errorPath);
 
 		process.off('uncaughtException', this.errorBound);
 
 		// Create crash report
 		fs.writeFileSync(
-			`${this.options.path}crashReports\\crash-${Date.now()}.log`,
+			path.join(errorPath, `crash-${Date.now()}.log`),
 			`[${new Date().toISOString()}]\n${err.stack}\n`,
 		);
 	}

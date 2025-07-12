@@ -1,5 +1,6 @@
 // Node Imports
 const fs = require('fs');
+const path = require('path');
 
 /**
  * The in-built logging system for ZaniJS for both console and file logging.
@@ -95,8 +96,11 @@ class ZaniLog {
 	 * @param {string} fileName - The desired output folder
 	 */
 	setLogFile(fileName) {
-		if (!fileName) this.logFile = undefined;
-		else this.logFile = this.options.path + '\\' + fileName + '\\logs\\audit.log';
+		if (!fileName) {
+			this.logFile = undefined;
+		} else {
+			this.logFile = path.join(this.options.path, fileName, 'logs', 'audit.log');
+		}
 	}
 
 	/** Set the source of the message for output. If source is not provided, it will default to 'Zani.'
