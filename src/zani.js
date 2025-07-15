@@ -358,6 +358,7 @@ export class Zani {
 			`collections`,
 			collection,
 		);
+
 		try{
 			fs.mkdirSync(collectionPath);
 		}catch (err) {
@@ -365,8 +366,9 @@ export class Zani {
 				this.handleError(new CollectionAlreadyExistsError(collection, this.databaseName))
 			}
 		}
+
 		// Create options object
-		const indexes = this.configureCollectionOptions(collection, this.databaseName);
+		const indexes = this.configureCollectionOptions(collection, options);
 		const metaPath = path.join(collectionPath, 'meta.json');
 		fs.writeFileSync(metaPath, JSON.stringify(options));
 

@@ -9,7 +9,7 @@ import { Zani } from './zani.js';
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
 
-var db = new Zani('Tester', { path: '/really/here/', fileLimit: 100, throwErrors: true, consoleOptions: { systemLog: false } });
+var db = new Zani('Tester', { path: './here/', fileLimit: 100, throwErrors: true, consoleOptions: { systemLog: false } });
 main();
 
 async function main() {

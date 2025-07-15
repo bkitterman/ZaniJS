@@ -1,6 +1,6 @@
 {
 	"name": "@bkitterman/zani-js",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"type": "module",
 	"main": "./src/index.js",
 	"exports": {
