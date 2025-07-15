@@ -14,12 +14,12 @@ export default class CollectionAlreadyExistsError extends ZaniError {
 	 *
 	 * @param {string} collection - The name of the collection
 	 */
-	constructor(collection) {
+	constructor(collection, databaseName) {
 		super(`Collection "${collection}" already exists.`, {
 			code: 'ZANI_E_COLLECTION_ALREADY_EXISTS',
 			statusCode: 409,
 			context: { operation: 'create', collection: collection },
 		});
-		this.databaseName = databaseName;
+		this.databaseName = databaseName | null;
 	}
 }

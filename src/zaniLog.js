@@ -271,5 +271,3 @@ export default class ZaniLog {
 		);
 	}
 }
-
-module.exports = ZaniLog;

@@ -9,7 +9,7 @@ import { Zani } from './zani.js';
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
 
-var db = new Zani(undefined, { fileLimit: 100, throwErrors: true, consoleOptions: { systemLog: false } });
+var db = new Zani('Tester', { path: '/really/here/', fileLimit: 100, throwErrors: true, consoleOptions: { systemLog: false } });
 main();
 
 async function main() {
@@ -20,7 +20,8 @@ async function main() {
 	- Query check, making sure things are used properly rather than just 'where they fit'
 	- Test object nesting with more defined data. works as is now in non-indexed files
 	*/
-	db.createCollection('Test');
+	db.createCollection('Testing');
+	db.addEntry('Testing', {value: 1});
 }
 
 async function buildDatabase() {

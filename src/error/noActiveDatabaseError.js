@@ -23,5 +23,3 @@ export default class NoActiveDatabaseError extends ZaniError {
 		});
 	}
 }
-
-module.exports = NoActiveDatabaseError;

@@ -32,7 +32,7 @@ class bPlusTreeNode {
  *
  * @author Brock Kitterman
  */
-export class BPlusTree {
+export default class BPlusTree {
 	meta = { order: null, nodeCount: null, root: null };
 
 	/** Create a new BPlustTree object. If the provided path contains a tree.json file, it will load an existing

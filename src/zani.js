@@ -1,13 +1,12 @@
 // Node Imports
 import fs from 'fs';
-import fsPromises from 'fs';
-import path from 'fs/promises';
+import fsPromises from 'fs/promises';
+import path from 'path';
 import { EventEmitter } from 'events';
 
 // Custom Imports
 import ZaniLog from './zaniLog.js';
 import BPlusTree from './bPlusTree.js';
-import ZaniLog from './zaniLog.js';
 
 // Error Imports
 import NoActiveDatabaseError from './error/noActiveDatabaseError.js';
@@ -316,7 +315,7 @@ export class Zani {
 		const indexesPath = path.join(dbPath, 'indexes');
 		const logsPath = path.join(dbPath, 'logs');
 		const metaPath = path.join(dbPath, 'meta.json');
-		if (!fs.existsSync(dbPath)) fs.mkdirSync(dbPath);
+		if (!fs.existsSync(dbPath)) fs.mkdirSync(dbPath, { recursive: true });
 		if (!fs.existsSync(collectionsPath)) fs.mkdirSync(collectionsPath);
 		if (!fs.existsSync(indexesPath)) fs.mkdirSync(indexesPath);
 		if (!fs.existsSync(logsPath)) fs.mkdirSync(logsPath);
@@ -359,10 +358,15 @@ export class Zani {
 			`collections`,
 			collection,
 		);
-		fs.mkdirSync(collectionPath);
-
+		try{
+			fs.mkdirSync(collectionPath);
+		}catch (err) {
+			if(err.code === 'EEXIST') {
+				this.handleError(new CollectionAlreadyExistsError(collection, this.databaseName))
+			}
+		}
 		// Create options object
-		const indexes = this.configureCollectionOptions(options);
+		const indexes = this.configureCollectionOptions(collection, this.databaseName);
 		const metaPath = path.join(collectionPath, 'meta.json');
 		fs.writeFileSync(metaPath, JSON.stringify(options));
 
@@ -538,7 +542,7 @@ export class Zani {
 	 *
 	 * @returns {string[]} - A list of attributes to be indexed by default.
 	 */
-	configureCollectionOptions(options) {
+	configureCollectionOptions(collection, options) {
 		if (!options.hasOwnProperty('autofillAttributes')) options.autofillAttributes = false;
 		if (!options.hasOwnProperty('allowExtraAttributes')) options.allowExtraAttributes = true;
 		if (!options.hasOwnProperty('attributeLock')) options.attributeLock = false;
@@ -673,7 +677,7 @@ export class Zani {
 		const entries = await this.batchReadEntries(collection, resultSet, this.options.fileLimit);
 
 		this.emitter.emit('indexCreation_Progress', 'Building Index');
-		for (const entry of entries) {
+		for (var entry of entries) {
 			var hasProperty = true;
 
 			// Prevent fragmentation from throwing system off
@@ -3406,6 +3410,7 @@ export class Zani {
 				'collections',
 				collection,
 			);
+			this.logger.debug(collectionPath);
 			if (fs.existsSync(collectionPath)) return true;
 
 			// Log an error if it exists in meta but not in file.
