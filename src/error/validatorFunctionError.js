@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from "./zaniError.js";
 
 /** An error thrown as a result of a error in a validator function in collection entry validation. 
  *
@@ -6,7 +6,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class ValidatorFunctionError extends ZaniError {
+export default class ValidatorFunctionError extends ZaniError {
 	/** Create a new instance of the ValidatorFunctionError class.
 	 *
 	 * @example
@@ -26,5 +26,3 @@ class ValidatorFunctionError extends ZaniError {
 		this.collectionName = collectionName;
 	}
 }
-
-module.exports = ValidatorFunctionError;

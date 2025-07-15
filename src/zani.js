@@ -1,26 +1,27 @@
 // Node Imports
-const fs = require('fs');
-const fsPromises = require('fs/promises');
-const path = require('path');
+import fs from 'fs';
+import fsPromises from 'fs';
+import path from 'fs/promises';
+import { EventEmitter } from 'events';
 
 // Custom Imports
-const ZaniLog = require('./zaniLog');
-const BPlusTree = require('./bPlusTree');
+import ZaniLog from './zaniLog.js';
+import BPlusTree from './bPlusTree.js';
+import ZaniLog from './zaniLog.js';
 
 // Error Imports
-const NoActiveDatabaseError = require('./error/noActiveDatabaseError');
-const DeleteActiveDatabaseError = require('./error/deleteActiveDatabaseError');
-const CollectionAlreadyExistsError = require('./error/collectionAlreadyExistsError');
-const MissingParametersError = require('./error/missingParametersError');
-const AttributeAlreadyIndexedError = require('./error/attributeAlreadyIndexedError');
-const AttributeDepthExceededError = require('./error/attributeDepthExceededError');
-const NoAttributesError = require('./error/noAttributesError');
-const MissingEntryIdError = require('./error/missingEntryIdError');
-const EntryNotFoundError = require('./error/entryNotFoundError');
-const EntryValidationFailedError = require('./error/entryValidationFailedError');
-const CollectionFolderNotFound = require('./error/collectionFolderNotFound');
-const ValidatorFunctionError = require('./error/validatorFunctionError');
-const EventEmitter = require('events');
+import NoActiveDatabaseError from './error/noActiveDatabaseError.js';
+import DeleteActiveDatabaseError from './error/deleteActiveDatabaseError.js';
+import CollectionAlreadyExistsError from './error/collectionAlreadyExistsError.js';
+import MissingParametersError from './error/missingParametersError.js';
+import AttributeAlreadyIndexedError from './error/attributeAlreadyIndexedError.js';
+import AttributeDepthExceededError from './error/attributeDepthExceededError.js';
+import NoAttributesError from './error/noAttributesError.js';
+import MissingEntryIdError from './error/missingEntryIdError.js';
+import EntryNotFoundError from './error/entryNotFoundError.js';
+import EntryValidationFailedError from './error/entryValidationFailedError.js';
+import CollectionFolderNotFound from './error/collectionFolderNotFound.js';
+import ValidatorFunctionError from './error/validatorFunctionError.js';
 
 /*
 * 	BIG HITTER TO-DOS
@@ -63,7 +64,7 @@ const EventEmitter = require('events');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class Zani {
+export class Zani {
 	/* -------------------------------------------------------------------------- */
 	/*                                Global States                               */
 	/* -------------------------------------------------------------------------- */
@@ -100,7 +101,7 @@ class Zani {
 	rejectionBound = this.crashDetectorRejection.bind(this);
 	/** Instance of event emitter  */
 	emitter = new EventEmitter();
-	
+
 	/* --------------------------------- Aliases -------------------------------- */
 	setDatabase = this.useDatabase;
 	createDatabase = this.useDatabase;
@@ -117,7 +118,6 @@ class Zani {
 	removeAllListeners = this.emitter.removeAllListeners.bind(this.emitter);
 	emit = () => {};
 
-	
 	/* -------------------------------- Variables ------------------------------- */
 	/** The active database name. If undefined, no database is active. @*/
 	databaseName;
@@ -126,7 +126,7 @@ class Zani {
 
 	/** The options object used for settings of this class and its behavior. Can be set with {@link Zani#configureOptions} */
 	options = {
-		path: "",
+		path: '',
 		fileLimit: 20,
 		treeOrder: 100,
 		crashDetector: true,
@@ -159,7 +159,11 @@ class Zani {
 	 */
 	constructor(databaseName, options) {
 		// Create logger object
-		this.logger = new ZaniLog(databaseName, this.options.consoleOptions, options.path || this.options.path);
+		this.logger = new ZaniLog(
+			databaseName,
+			this.options.consoleOptions,
+			options.path || this.options.path,
+		);
 		this.logger.log(`Loading`);
 
 		// Initial startup
@@ -180,12 +184,12 @@ class Zani {
 			this.updateMetaFile();
 
 			this.logger.log(`Ready - ${this.databaseName}`);
-			this.emitter.emit('systemReady', {database: this.databaseName});
+			this.emitter.emit('systemReady', { database: this.databaseName });
 			return;
 		}
 
 		this.logger.log('Ready - No database selected');
-		this.emitter.emit('systemReady', {database: false});
+		this.emitter.emit('systemReady', { database: false });
 	}
 
 	/** Configure the options variable to match the passed arguments. If consoleOptions is present, it will configure
@@ -199,7 +203,7 @@ class Zani {
 	 * @param {boolean} [options.smartIndexing=true] - When a value is queried 10 times, a index will be automatically created if not already present.
 	 * @param {boolean} [options.throwErrors=true] - If true, errors will be thrown instead of just logged.
 	 * @param {boolean} [options.emitEvents=false] - Enable event emissions
-	 * 
+	 *
 	 * @param {object} options.consoleOptions - Define the console options to be used by the logging object.
 	 */
 	configureOptions(options) {
@@ -343,26 +347,30 @@ class Zani {
 		if (!this.checkForActiveDatabase()) return;
 
 		// Check if collection already exists
-		if(this.meta.collections.hasOwnProperty(collection)) {
+		if (this.meta.collections.hasOwnProperty(collection)) {
 			this.handleError(new CollectionAlreadyExistsError(collection, 'add/createCollection'));
 			return;
 		}
 
 		// Create collection folder
-		const collectionPath = path.join(this.options.path, this.databaseName, `collections`, collection)
+		const collectionPath = path.join(
+			this.options.path,
+			this.databaseName,
+			`collections`,
+			collection,
+		);
 		fs.mkdirSync(collectionPath);
 
 		// Create options object
 		const indexes = this.configureCollectionOptions(options);
-		const metaPath = path.join(collectionPath, 'meta.json')
+		const metaPath = path.join(collectionPath, 'meta.json');
 		fs.writeFileSync(metaPath, JSON.stringify(options));
 
 		// Create Collection Index Folder and any default collections
 		const indexPath = path.join(this.options.path, this.databaseName, 'indexes', collection);
 		fs.mkdirSync(indexPath);
-		
-		for(const element of indexes) 
-			this.createIndex(collection, element);
+
+		for (const element of indexes) this.createIndex(collection, element);
 
 		// Update metadata, add collection
 		Object.defineProperty(this.meta.collections, collection, {
@@ -374,7 +382,9 @@ class Zani {
 
 		this.logger.log(`Added collection ${collection} to ${this.databaseName}`);
 		this.emitter.emit('collectionAdded', {
-			collection: collection, options: options, databaseName: this.databaseName 
+			collection: collection,
+			options: options,
+			databaseName: this.databaseName,
 		});
 	}
 
@@ -396,18 +406,22 @@ class Zani {
 		}
 
 		// Delete the collection folder
-		const collectionPath = path.join(this.options.path, this.databaseName, 'collections', collection);
-		if (fs.existsSync(collectionPath))
-			fs.rmSync(collectionPath, { recursive: true, force: true });
+		const collectionPath = path.join(
+			this.options.path,
+			this.databaseName,
+			'collections',
+			collection,
+		);
+		if (fs.existsSync(collectionPath)) fs.rmSync(collectionPath, { recursive: true, force: true });
 
 		// Delete index files
 		const indexPath = path.join(this.options.path, this.databaseName, 'indexes', collection);
-		if (fs.existsSync(indexPath))
-			fs.rmSync(indexPath, { recursive: true, force: true });
+		if (fs.existsSync(indexPath)) fs.rmSync(indexPath, { recursive: true, force: true });
 
 		this.logger.log(`Deleted collection ${collection}`, this.databaseName);
 		this.emitter.emit('collectionRemoved', {
-			collection: collection, databaseName: this.databaseName 
+			collection: collection,
+			databaseName: this.databaseName,
 		});
 	}
 
@@ -427,8 +441,18 @@ class Zani {
 		}
 
 		// Rename collection file
-		const oldCollectionPath = path.join(this.options.path, this.databaseName, 'collections', collection);
-		const newCollectionPath = path.join(this.options.path, this.databaseName, 'collections', newName);
+		const oldCollectionPath = path.join(
+			this.options.path,
+			this.databaseName,
+			'collections',
+			collection,
+		);
+		const newCollectionPath = path.join(
+			this.options.path,
+			this.databaseName,
+			'collections',
+			newName,
+		);
 		fs.renameSync(oldCollectionPath, newCollectionPath);
 
 		// Rename Index Folder
@@ -447,7 +471,9 @@ class Zani {
 
 		this.logger.log(`Renamed collection ${collection} to ${newName}`, this.databaseName);
 		this.emitter.emit('collectionUpdated', {
-			collection: collection, newName: newName, databaseName: this.databaseName 
+			collection: collection,
+			newName: newName,
+			databaseName: this.databaseName,
 		});
 	}
 
@@ -469,31 +495,32 @@ class Zani {
 
 		var entries = await this.batchReadEntries(collection, collectionSize, this.options.fileLimit);
 		for (const entry of entries) {
-			if (entry !== null) 
-				results.push(entry);
+			if (entry !== null) results.push(entry);
 		}
 
 		this.emitter.emit('collectionGet', {
-			collection: collection, options: this.getCollectionSettings(collection), databaseName: this.databaseName 
+			collection: collection,
+			options: this.getCollectionSettings(collection),
+			databaseName: this.databaseName,
 		});
 		return results;
 	}
 
 	/** Configure a collection options object with all necessary settings, as defined by either the user
-	 * or Zani's default settings. 
-	 * 
+	 * or Zani's default settings.
+	 *
 	 * Note: For attribute settings, they should be placed at options.attributes[attributeName]. These settings
-	 * only work at depth 1. Nesting objects can be permitted through use of 'datatype = "object"' parameter. 
+	 * only work at depth 1. Nesting objects can be permitted through use of 'datatype = "object"' parameter.
 	 * Nested objects can be indexed to depth 2.
-	 * 
+	 *
 	 * @param {object} options - The collection settings object.
-	 * 
+	 *
 	 * @param {boolean} [options.autofillAttributes=false] - If a attribute is missing, it will automatically be added to the entry with appropriate datatype or null
 	 * @param {boolean} [options.allowExtraAttributes=true] - If false, no attributes can be added in any entry that do not exist prior to attribute creation.
 	 * @param {boolean} [options.attributeLock=false] - If true, only attributes within the attribute array may be within an entry.
 	 * @param {boolean} [options.timestamps=false] - If true, the system will maintain a _createdOn and _updatedAt attribute with matching timestamps.
-	 * 
-	 * @param {object} [options.attributes={}] - A object that contains attributes and their individual settings. If a attribute is present in this list, it is required to appear in the entry. If it does not, it will autofill (if checked) or error out otherwise.  
+	 *
+	 * @param {object} [options.attributes={}] - A object that contains attributes and their individual settings. If a attribute is present in this list, it is required to appear in the entry. If it does not, it will autofill (if checked) or error out otherwise.
 	 * @param {object} [options.attributes.domain=false] - An object with two attributes: lower and upper that serve as bounds for data validation.
 	 * @param {number} [options.attributes.domain.lower=false] - Contains the lower bound of permissible values, inclusive. If false, there is no lower bound.
 	 * @param {number} [options.attributes.domain.upper=false] - Contains the upper bound of permissible values, inclusive. If false, there is no upper bound.
@@ -508,58 +535,72 @@ class Zani {
 	 * @param {function} [options.attributes.autofillValue=null] - Define a custom value for use in autofill, if enabled. If not provided, it will default to null.
 	 * @param {boolean} [options.attributes.required=true] - if true, this attribute is required. Can be used to override default attribute settings.
 	 * @param {boolean} [options.attributes.indexed=false] - If true, a index for this attribute will be created by default.
-	 * 
+	 *
 	 * @returns {string[]} - A list of attributes to be indexed by default.
-	*/
+	 */
 	configureCollectionOptions(options) {
-		if(!options.hasOwnProperty('autofillAttributes')) options.autofillAttributes = false;
-		if(!options.hasOwnProperty('allowExtraAttributes')) options.allowExtraAttributes = true;
-		if(!options.hasOwnProperty('attributeLock')) options.attributeLock = false;
-		if(!options.hasOwnProperty('timestamps')) options.timestamps = false;
+		if (!options.hasOwnProperty('autofillAttributes')) options.autofillAttributes = false;
+		if (!options.hasOwnProperty('allowExtraAttributes')) options.allowExtraAttributes = true;
+		if (!options.hasOwnProperty('attributeLock')) options.attributeLock = false;
+		if (!options.hasOwnProperty('timestamps')) options.timestamps = false;
 
 		var defaultIndexes = [];
-		if(options.hasOwnProperty('attributes')) {
-			for(const key in options.attributes) {
-				if(options.attributes[key].hasOwnProperty('domain')) {
-					if(!options.attributes[key].domain.hasOwnProperty('lower')) 
+		if (options.hasOwnProperty('attributes')) {
+			for (const key in options.attributes) {
+				if (options.attributes[key].hasOwnProperty('domain')) {
+					if (!options.attributes[key].domain.hasOwnProperty('lower'))
 						options.attributes[key].domain.lower = false;
-					if(!options.attributes[key].domain.hasOwnProperty('upper')) 
+					if (!options.attributes[key].domain.hasOwnProperty('upper'))
 						options.attributes[key].domain.upper = false;
 				} else options.attributes[key].domain = false;
 
-				if(!options.attributes[key].hasOwnProperty('enum')) options.attributes[key].enum = false;
-				if(!options.attributes[key].hasOwnProperty('outlier')) options.attributes[key].outlier = false;
-				if(!options.attributes[key].hasOwnProperty('pattern')) options.attributes[key].pattern = false;
-				if(!options.attributes[key].hasOwnProperty('unique')) options.attributes[key].unique = false;
-				if(!options.attributes[key].hasOwnProperty('dataType')) options.attributes[key].dataType = false;
-				if(!options.attributes[key].hasOwnProperty('permitNull')) options.attributes[key].permitNull = true;
-				if(!options.attributes[key].hasOwnProperty('validator')) options.attributes[key].validator = false;
-				if(!options.attributes[key].hasOwnProperty('immutable')) options.attributes[key].immutable = false;
-				if(!options.attributes[key].hasOwnProperty('autofillValue')) options.attributes[key].autofillValue = null;
-				if(!options.attributes[key].hasOwnProperty('required')) options.attributes[key].required = true;
+				if (!options.attributes[key].hasOwnProperty('enum')) options.attributes[key].enum = false;
+				if (!options.attributes[key].hasOwnProperty('outlier'))
+					options.attributes[key].outlier = false;
+				if (!options.attributes[key].hasOwnProperty('pattern'))
+					options.attributes[key].pattern = false;
+				if (!options.attributes[key].hasOwnProperty('unique'))
+					options.attributes[key].unique = false;
+				if (!options.attributes[key].hasOwnProperty('dataType'))
+					options.attributes[key].dataType = false;
+				if (!options.attributes[key].hasOwnProperty('permitNull'))
+					options.attributes[key].permitNull = true;
+				if (!options.attributes[key].hasOwnProperty('validator'))
+					options.attributes[key].validator = false;
+				if (!options.attributes[key].hasOwnProperty('immutable'))
+					options.attributes[key].immutable = false;
+				if (!options.attributes[key].hasOwnProperty('autofillValue'))
+					options.attributes[key].autofillValue = null;
+				if (!options.attributes[key].hasOwnProperty('required'))
+					options.attributes[key].required = true;
 
-
-				if(options.attributes[key].hasOwnProperty('indexed'))
-					if(options.attributes[key].indexed === true)
-						defaultIndexes.push(key);
+				if (options.attributes[key].hasOwnProperty('indexed'))
+					if (options.attributes[key].indexed === true) defaultIndexes.push(key);
 			}
-		}else options.attributes = {};
+		} else options.attributes = {};
 
-		this.emitter.emit('collectionOptionsConfigured', { 
-			collection: collection, options: options, defaultIndexes: defaultIndexes, database: this.databaseName
+		this.emitter.emit('collectionOptionsConfigured', {
+			collection: collection,
+			options: options,
+			defaultIndexes: defaultIndexes,
+			database: this.databaseName,
 		});
 		return defaultIndexes;
 	}
 
 	/** Retrieves a collections setting object from its meta.json file.
-	 * 
+	 *
 	 * @param {string} collection - The name of the collection
 	 * @returns {object} - The collection settings object
 	 */
 	getCollectionSettings(collection) {
 		if (!this.checkForCollection(collection, 'getSettings')) return;
 
-		return JSON.parse(fs.readFileSync(path.join(this.options.path, this.databaseName, 'collections', collection, 'meta.json')))
+		return JSON.parse(
+			fs.readFileSync(
+				path.join(this.options.path, this.databaseName, 'collections', collection, 'meta.json'),
+			),
+		);
 	}
 
 	/* -------------------------------------------------------------------------- */
@@ -595,7 +636,13 @@ class Zani {
 			return;
 		}
 
-		const indexPath = path.join(this.options.path, this.databaseName, 'indexes', collection, attribute);
+		const indexPath = path.join(
+			this.options.path,
+			this.databaseName,
+			'indexes',
+			collection,
+			attribute,
+		);
 
 		// Check if attribute is already indexed
 		if (fs.existsSync(indexPath)) {
@@ -621,10 +668,10 @@ class Zani {
 		this.meta.collections[collection].indexed.push(attribute);
 
 		// Check each entry for the attribute. If it exists, add to the tree.
-		
+
 		this.emitter.emit('indexCreation_Progress', 'Reading Entries');
 		const entries = await this.batchReadEntries(collection, resultSet, this.options.fileLimit);
-		
+
 		this.emitter.emit('indexCreation_Progress', 'Building Index');
 		for (const entry of entries) {
 			var hasProperty = true;
@@ -652,10 +699,10 @@ class Zani {
 		this.logger.log(`Created index files for ${attribute}`, this.databaseName);
 		this.emitter.emit('indexCreation_Progress', 'Index Created');
 		this.emitter.emit('indexCreated', {
-			attribute: attribute, 
-			collection: collection, 
-			time: this.calculateTime(startTime, endTime), 
-			databaseName: this.databaseName 
+			attribute: attribute,
+			collection: collection,
+			time: this.calculateTime(startTime, endTime),
+			databaseName: this.databaseName,
 		});
 	}
 
@@ -712,10 +759,16 @@ class Zani {
 		entry = { _id, ...rest };
 
 		// Ensure entry matches settings
-		if(!this.validateEntry(collection, entry, false, settings)) return;
+		if (!this.validateEntry(collection, entry, false, settings)) return;
 
 		// Add to collection
-		const entryFolderPath = path.join(this.options.path, this.databaseName, 'collections', collection, this.getEntryFolder(id));
+		const entryFolderPath = path.join(
+			this.options.path,
+			this.databaseName,
+			'collections',
+			collection,
+			this.getEntryFolder(id),
+		);
 		const entryFilePath = this.getEntryPath(collection, id);
 		if (!fs.existsSync(entryFolderPath)) {
 			fs.mkdirSync(entryFolderPath);
@@ -727,7 +780,13 @@ class Zani {
 		// Add any values into their respective index
 		for (const key in entry) {
 			if (this.meta.collections[collection].indexed.includes(key)) {
-				const indexPath = path.join(this.options.path, this.databaseName, 'indexes', collection, key);
+				const indexPath = path.join(
+					this.options.path,
+					this.databaseName,
+					'indexes',
+					collection,
+					key,
+				);
 				const tree = new BPlusTree(indexPath);
 				tree.insert(entry[key], entry._id);
 				this.logger.log(`Updated index of ${collection}\\${key} with value ${entry[key]}`);
@@ -736,7 +795,9 @@ class Zani {
 
 		this.logger.log(`Added entry: ${id} to ${collection}`, this.databaseName);
 		this.emitter.emit('entryAdded', {
-			entry: entry, collection: collection, databaseName: this.databaseName 
+			entry: entry,
+			collection: collection,
+			databaseName: this.databaseName,
 		});
 	}
 
@@ -752,7 +813,7 @@ class Zani {
 
 		// Check if entry value was passed
 		if (!entryId) {
-			his.handleError(new MissingParametersError('entry', 'deleteEntry'));
+			this.handleError(new MissingParametersError('entry', 'deleteEntry'));
 			return false;
 		}
 
@@ -768,7 +829,13 @@ class Zani {
 		// Delete from index files
 		for (const key in entryObject) {
 			if (this.meta.collections[collection].indexed.includes(key)) {
-				const indexPath = path.join(this.options.path, this.databaseName, 'indexes', collection, key);
+				const indexPath = path.join(
+					this.options.path,
+					this.databaseName,
+					'indexes',
+					collection,
+					key,
+				);
 				const tree = new BPlusTree(indexPath);
 				tree.delete(entryObject[key], entryId);
 				this.logger.log(
@@ -780,7 +847,9 @@ class Zani {
 
 		this.logger.log(`Deleted ${entryId} from ${collection}`, this.databaseName);
 		this.emitter.emit('entryDeleted', {
-			entry: entryObject, collection: collection, databaseName: this.databaseName 
+			entry: entryObject,
+			collection: collection,
+			databaseName: this.databaseName,
 		});
 
 		return true;
@@ -806,11 +875,13 @@ class Zani {
 		}
 
 		// Read file contents
-		const path = this.getEntryPath(collection, id);
+		const filePath = this.getEntryPath(collection, id);
 		this.emitter.emit('entryGet', {
-			entry: entry | null, collection: collection, databaseName: this.databaseName 
+			entry: entry | null,
+			collection: collection,
+			databaseName: this.databaseName,
 		});
-		if (fs.existsSync(path)) return JSON.parse(fs.readFileSync(path));
+		if (fs.existsSync(filePath)) return JSON.parse(fs.readFileSync(filePath));
 
 		// File does not exist due to deletion or error
 		return null;
@@ -830,7 +901,7 @@ class Zani {
 				const data = await fsPromises.readFile(path, 'utf8');
 				return JSON.parse(data);
 			} catch (err) {
-				this.logger.error(err); 
+				this.logger.error(err);
 				return null;
 			}
 		}
@@ -840,7 +911,7 @@ class Zani {
 	}
 
 	/** Read a batch of entry files in parallel, but throttle the number of concurrent reads.
-	 * 
+	 *
 	 * @param {string} collection - The collection name
 	 * @param {number[]} ids - Array of entry IDs to read
 	 * @param {number} batchSize - Max number of files to read in parallel
@@ -851,16 +922,16 @@ class Zani {
 		const results = [];
 		for (let i = 0; i < ids.length; i += batchSize) {
 			const batch = ids.slice(i, i + batchSize);
-			const batchResults = await Promise.all(
-				batch.map(id => this.getEntryAsync(collection, id))
-			);
+			const batchResults = await Promise.all(batch.map((id) => this.getEntryAsync(collection, id)));
 			results.push(...batchResults);
 		}
 		const end = Date.now();
-		this.emitter.emit('collectionFullRead', { 
-			collection: collection, databaseName: this.databaseName, time: this.calculateTime(start, end) 
+		this.emitter.emit('collectionFullRead', {
+			collection: collection,
+			databaseName: this.databaseName,
+			time: this.calculateTime(start, end),
 		});
-		
+
 		return results;
 	}
 
@@ -910,7 +981,7 @@ class Zani {
 		}
 
 		// Ensure entry matches settings
-		if(!this.validateEntry(collection, entry, true, settings)) return;
+		if (!this.validateEntry(collection, entry, true, settings)) return;
 
 		// Store original values for index removal post-update
 		const originalValues = {};
@@ -932,15 +1003,18 @@ class Zani {
 
 		// Update index file
 		for (const key in originalValues) {
-			 const indexPath = path.join(this.options.path, this.databaseName, 'indexes', collection, key);
+			const indexPath = path.join(this.options.path, this.databaseName, 'indexes', collection, key);
 			const tree = new BPlusTree(indexPath);
 			if (originalValues[key] !== null) tree.delete(originalValues[key], entry._id);
 			if (entry.hasOwnProperty(key) && entry[key] !== null) tree.insert(entry[key], entry._id);
 		}
 
 		this.logger.log(`Updated entry ${entry._id} in collection ${collection}`, this.databaseName);
-		this.emitter.emit('entryUpdated', {entry: entry, collection: collection, databaseName: this.databaseName });
-		
+		this.emitter.emit('entryUpdated', {
+			entry: entry,
+			collection: collection,
+			databaseName: this.databaseName,
+		});
 	}
 
 	/** Helper method for {@link Zani#updateEntry} that performs that actual object updates through recursion.
@@ -994,67 +1068,83 @@ class Zani {
 
 	/** Compare an entry to a collection settings, and ensure it either is permissible by all constraints, and/or
 	 * is matching collection settings to be added. This method should be used for both updating and inserting.
-	 * 
+	 *
 	 * Depending on the value of update, {@link Zani#validateEntryUpdate} will be called to service updates due
 	 * to difference validation checking.
-	 * 
+	 *
 	 * If settings is not passed, it will be gathered based on collection name provided.
-	 * 
+	 *
 	 * @param {string} collection - The name of the collection
 	 * @param {object} entry - The entry to be added to collection
 	 * @param {boolean} update - If this should be compared to as an update (true) or insertion (false)
 	 * @param {object?} settings - The settings object
-	 * @returns {boolean} - Result of validation against collection settings 
+	 * @returns {boolean} - Result of validation against collection settings
 	 */
 	validateEntry(collection, entry, update, settings) {
-		if(!this.checkForCollection(collection, 'validateEntry')) return false;
-		if(!settings) settings = this.getCollectionSettings(collection);
+		if (!this.checkForCollection(collection, 'validateEntry')) return false;
+		if (!settings) settings = this.getCollectionSettings(collection);
 
-		if(update) return this.validateEntryUpdate(collection, entry, settings);
+		if (update) return this.validateEntryUpdate(collection, entry, settings);
 
 		// Collection wide checks
 		const entryKeys = Object.keys(entry);
 
 		// Settings.attributeLock check
-		if(settings.attributeLock) {
+		if (settings.attributeLock) {
 			const entryStructure = Object.keys(settings.attributes);
-			entryStructure.push( ... ['_id', '_createdOn', '_updatedOn']);
+			entryStructure.push(...['_id', '_createdOn', '_updatedOn']);
 			var invalidKeys = [];
 			var valid = true;
 
-			for(const key of entryStructure) {
-				if(entryKeys.includes(key)) continue;
+			for (const key of entryStructure) {
+				if (entryKeys.includes(key)) continue;
 				invalidKeys.push(key);
 			}
 
-			if(entryStructure.length !== entryKeys.length) valid = false;
+			if (entryStructure.length !== entryKeys.length) valid = false;
 
-			if(invalidKeys.length > 0) {
-				if(settings.autofillAttributes) {
-					for(const key of invalidKeys) {
+			if (invalidKeys.length > 0) {
+				if (settings.autofillAttributes) {
+					for (const key of invalidKeys) {
 						Object.defineProperty(entry, key, {
 							value: settings.attributes[key].autofillValue,
 							enumerable: true,
 							writable: true,
 						});
 					}
-				}else {
-					this.handleError(new EntryValidationFailedError(collection, invalidKeys.toString(), 'attributeLock', true, 'Missing attributes'));
+				} else {
+					this.handleError(
+						new EntryValidationFailedError(
+							collection,
+							invalidKeys.toString(),
+							'attributeLock',
+							true,
+							'Missing attributes',
+						),
+					);
 					return false;
 				}
 			}
 
-			if(!valid) {
-				if(settings.autofillAttributes) {
+			if (!valid) {
+				if (settings.autofillAttributes) {
 					const structureSet = new Set(entryStructure);
 					const entrySet = new Set(entryKeys);
 					const setDifference = this.setDifference(structureSet, entrySet);
 
-					for(const key of [... entrySet]) {
-						if(!setDifference.has(key)) delete entry[key];
+					for (const key of [...entrySet]) {
+						if (!setDifference.has(key)) delete entry[key];
 					}
-				}else {
-					this.handleError(new EntryValidationFailedError(collection, 'Extra Attributes', 'attributeLock', true, 'Extra attributes'));
+				} else {
+					this.handleError(
+						new EntryValidationFailedError(
+							collection,
+							'Extra Attributes',
+							'attributeLock',
+							true,
+							'Extra attributes',
+						),
+					);
 					return false;
 				}
 			}
@@ -1062,12 +1152,11 @@ class Zani {
 
 		// Handle attribute individual settings
 		const attributesList = Object.keys(settings.attributes);
-		for(const attribute of attributesList) {
-			
+		for (const attribute of attributesList) {
 			// Settings.attribute.required check
-			if(settings.attributes[attribute].required) {
-				if(!entry.hasOwnProperty(attribute)) {
-					if(settings.autofillAttributes) {
+			if (settings.attributes[attribute].required) {
+				if (!entry.hasOwnProperty(attribute)) {
+					if (settings.autofillAttributes) {
 						Object.defineProperty(entry, attribute, {
 							value: settings.attributes[attribute].autofillValue,
 							enumerable: true,
@@ -1075,19 +1164,33 @@ class Zani {
 						});
 						continue;
 					} else {
-						this.handleError(new EntryValidationFailedError(
-							collection, attribute, 'required', true, 'Missing attribute'));
+						this.handleError(
+							new EntryValidationFailedError(
+								collection,
+								attribute,
+								'required',
+								true,
+								'Missing attribute',
+							),
+						);
 						return false;
 					}
 				}
 			}
 
 			// settings.attributes.enum check
-			if(settings.attributes[attribute].enum !== false) {
-				if(settings.attributes[attribute].enum.length !== 0) {
-					if(!settings.attributes[attribute].enum.includes(entry[attribute])) {
-						this.handleError(new EntryValidationFailedError(
-							collection, attribute, 'enum', settings.attributes[attribute].enum, entry[attribute]));
+			if (settings.attributes[attribute].enum !== false) {
+				if (settings.attributes[attribute].enum.length !== 0) {
+					if (!settings.attributes[attribute].enum.includes(entry[attribute])) {
+						this.handleError(
+							new EntryValidationFailedError(
+								collection,
+								attribute,
+								'enum',
+								settings.attributes[attribute].enum,
+								entry[attribute],
+							),
+						);
 						return false;
 					} else {
 						continue;
@@ -1096,9 +1199,9 @@ class Zani {
 			}
 
 			// settings.attributes.outlier check
-			if(settings.attributes[attribute].outlier !== false) {
-				if(settings.attributes[attribute].outlier.length !== 0) {
-					if(settings.attributes[attribute].outlier.includes(entry[attribute])) {
+			if (settings.attributes[attribute].outlier !== false) {
+				if (settings.attributes[attribute].outlier.length !== 0) {
+					if (settings.attributes[attribute].outlier.includes(entry[attribute])) {
 						continue;
 					}
 				}
@@ -1106,67 +1209,97 @@ class Zani {
 
 			// settings.attributes.datatype check
 			const attributeDatatype = this.getAttributeDataType(entry[attribute]);
-			if(settings.attributes[attribute].dataType !== false) {
-				if(attributeDatatype !== settings.attributes[attribute].dataType) {
-					this.handleError(new EntryValidationFailedError(
-						collection, attribute, 'dataType', settings.attributes[attribute].dataType, attributeDatatype));
+			if (settings.attributes[attribute].dataType !== false) {
+				if (attributeDatatype !== settings.attributes[attribute].dataType) {
+					this.handleError(
+						new EntryValidationFailedError(
+							collection,
+							attribute,
+							'dataType',
+							settings.attributes[attribute].dataType,
+							attributeDatatype,
+						),
+					);
 					return false;
 				}
 			}
 
 			// settings.attributes.permitNull check
-			if(!settings.attributes[attribute].permitNull) {
-				if(attributeDatatype === 'null') {
-					this.handleError(new EntryValidationFailedError(
-						collection, attribute, 'permitNull', false, 'null'));
+			if (!settings.attributes[attribute].permitNull) {
+				if (attributeDatatype === 'null') {
+					this.handleError(
+						new EntryValidationFailedError(collection, attribute, 'permitNull', false, 'null'),
+					);
 					return false;
 				}
 			}
 
 			// settings.attributes.domain check
-			if(attributeDatatype === 'number' && settings.attributes[attribute].domain !== false) {
+			if (attributeDatatype === 'number' && settings.attributes[attribute].domain !== false) {
 				const entryVal = entry[attribute];
 				const lower = settings.attributes[attribute].domain.lower || -Infinity;
 				const upper = settings.attributes[attribute].domain.upper || Infinity;
 
-				if(entryVal<lower || entryVal > upper) {
-					this.handleError(new EntryValidationFailedError(
-						collection, attribute, 'domain', settings.attributes[attribute].domain, entry[attribute]));
+				if (entryVal < lower || entryVal > upper) {
+					this.handleError(
+						new EntryValidationFailedError(
+							collection,
+							attribute,
+							'domain',
+							settings.attributes[attribute].domain,
+							entry[attribute],
+						),
+					);
 					return false;
 				}
 			}
 
-			// settings.attributes.pattern check 
-			if(attributeDatatype === 'string' && settings.attributes[attribute].pattern !== false) {
+			// settings.attributes.pattern check
+			if (attributeDatatype === 'string' && settings.attributes[attribute].pattern !== false) {
 				const entryVal = entry[attribute];
 				const expression = new RegExp(settings.attributes[attribute].pattern);
 
-				if(!expression.test(entryVal)) {
-					this.handleError(new EntryValidationFailedError(
-						collection, attribute, 'pattern', settings.attributes[attribute].pattern, entry[attribute]));
+				if (!expression.test(entryVal)) {
+					this.handleError(
+						new EntryValidationFailedError(
+							collection,
+							attribute,
+							'pattern',
+							settings.attributes[attribute].pattern,
+							entry[attribute],
+						),
+					);
 					return false;
 				}
 			}
 
 			// settings.attribute.validator check
-			if(settings.attributes[attribute].validator !== false) {
-				try{
-					if(settings.attributes[attribute].validator(entry[attribute]) !== true) {
-						this.handleError(new EntryValidationFailedError(
-							collection, attribute, 'validator', settings.attributes[attribute].validator, entry[attribute]));
+			if (settings.attributes[attribute].validator !== false) {
+				try {
+					if (settings.attributes[attribute].validator(entry[attribute]) !== true) {
+						this.handleError(
+							new EntryValidationFailedError(
+								collection,
+								attribute,
+								'validator',
+								settings.attributes[attribute].validator,
+								entry[attribute],
+							),
+						);
 						return false;
 					}
-				} catch(err) {
+				} catch (err) {
 					this.handleError(new ValidatorFunctionError(collection, attribute, err));
 					return false;
 				}
 			}
 
 			// Settings.attribute.unique check
-			if(settings.attributes[attribute].unique) {
-				if(!this.validateEntryUnique(collection, attribute, entry[attribute])) {
-					this.handleError(new EntryValidationFailedError(
-						collection, attribute, 'unique', true, entry[attribute]));
+			if (settings.attributes[attribute].unique) {
+				if (!this.validateEntryUnique(collection, attribute, entry[attribute])) {
+					this.handleError(
+						new EntryValidationFailedError(collection, attribute, 'unique', true, entry[attribute]),
+					);
 					return false;
 				}
 			}
@@ -1179,58 +1312,72 @@ class Zani {
 	/** Compare an entry to a collection settings, and ensure it either is permissible by all constraints, and/or
 	 * is matching collection settings to be added. This method is for validating entry updates, and will provide
 	 * difference results if used to strictly validation of entry insertion.
-	 * 
+	 *
 	 * @param {string} collection - The name of the collection
 	 * @param {object} entry - The entry to be added to collection
 	 * @param {object} settings - The settings object
-	 * @returns {boolean} - Result of validation against collection settings 
+	 * @returns {boolean} - Result of validation against collection settings
 	 */
 	validateEntryUpdate(collection, entry, settings) {
 		// Collection wide checks
 		const entryKeys = Object.keys(entry);
 
 		// Settings.allowExtraAttributes check
-		if(!settings.allowExtraAttributes) {
+		if (!settings.allowExtraAttributes) {
 			const originalEntry = this.getEntry(collection, entry._id);
 
 			const originalEntryKeys = Object.keys(originalEntry);
-			for(const key of entryKeys) {
-				if(originalEntryKeys.includes(key)) continue;
+			for (const key of entryKeys) {
+				if (originalEntryKeys.includes(key)) continue;
 
-				if(settings.autofillAttributes) {
+				if (settings.autofillAttributes) {
 					delete entry[key];
 					continue;
 				}
-				
-				this.handleError(new EntryValidationFailedError(
-					collection, key, 'allowExtraAttributes', false, 'Cannot add attribute'));
-					
+
+				this.handleError(
+					new EntryValidationFailedError(
+						collection,
+						key,
+						'allowExtraAttributes',
+						false,
+						'Cannot add attribute',
+					),
+				);
+
 				return false;
 			}
-		}		
+		}
 
 		// Settings.attributeLock check
-		if(settings.attributeLock) {
+		if (settings.attributeLock) {
 			const entryStructure = Object.keys(settings.attributes);
-			entryStructure.push( ... ['_id', '_createdOn', '_updatedOn']);
+			entryStructure.push(...['_id', '_createdOn', '_updatedOn']);
 			console.log(entryStructure);
 			var invalidKeys = [];
 
-			for(const key of entryKeys) {
-				if(entryStructure.includes(key)) continue;
+			for (const key of entryKeys) {
+				if (entryStructure.includes(key)) continue;
 				invalidKeys.push(key);
 			}
 
-			if(invalidKeys.length > 0) {
-				if(settings.autofillAttributes) {
-					for(const key of invalidKeys) {
+			if (invalidKeys.length > 0) {
+				if (settings.autofillAttributes) {
+					for (const key of invalidKeys) {
 						console.log(key);
 						delete entry[key];
 					}
-				}else {
-					this.handleError(new EntryValidationFailedError(
-						collection, invalidKeys.toString(), 'attributeLock', true, 'Cannot add attribute'));
-					
+				} else {
+					this.handleError(
+						new EntryValidationFailedError(
+							collection,
+							invalidKeys.toString(),
+							'attributeLock',
+							true,
+							'Cannot add attribute',
+						),
+					);
+
 					return false;
 				}
 			}
@@ -1238,25 +1385,32 @@ class Zani {
 
 		// Handle attribute individual settings
 		const attributesList = Object.keys(settings.attributes);
-		for(const attribute of attributesList) {
-			if(!entry.hasOwnProperty(attribute)) continue;
+		for (const attribute of attributesList) {
+			if (!entry.hasOwnProperty(attribute)) continue;
 
 			// settings.attributes.immutable check
-			if(settings.attributes[attribute].immutable) {
-				if(settings.autofillAttributes) {
+			if (settings.attributes[attribute].immutable) {
+				if (settings.autofillAttributes) {
 					delete entry[attribute];
 					continue;
 				} else {
-					this.handleError(new EntryValidationFailedError(
-						collection, attribute, 'immutable', true, 'Cannot change this attribute'));
+					this.handleError(
+						new EntryValidationFailedError(
+							collection,
+							attribute,
+							'immutable',
+							true,
+							'Cannot change this attribute',
+						),
+					);
 					return false;
 				}
 			}
-			
+
 			// Settings.attribute.required check
-			if(settings.attributes[attribute].required) {
-				if(entry[attribute] === undefined) {
-					if(settings.autofillAttributes) {
+			if (settings.attributes[attribute].required) {
+				if (entry[attribute] === undefined) {
+					if (settings.autofillAttributes) {
 						Object.defineProperty(entry, attribute, {
 							value: settings.attributes[attribute].autofillValue,
 							enumerable: true,
@@ -1264,19 +1418,33 @@ class Zani {
 						});
 						continue;
 					} else {
-						this.handleError(new EntryValidationFailedError(
-							collection, attribute, 'required', true, 'Attempting to delete required attribute'));
+						this.handleError(
+							new EntryValidationFailedError(
+								collection,
+								attribute,
+								'required',
+								true,
+								'Attempting to delete required attribute',
+							),
+						);
 						return false;
 					}
 				}
 			}
 
 			// settings.attributes.enum check
-			if(settings.attributes[attribute].enum !== false) {
-				if(settings.attributes[attribute].enum.length !== 0) {
-					if(!settings.attributes[attribute].enum.includes(entry[attribute])) {
-						this.handleError(new EntryValidationFailedError(
-							collection, attribute, 'enum', settings.attributes[attribute].enum, entry[attribute]));
+			if (settings.attributes[attribute].enum !== false) {
+				if (settings.attributes[attribute].enum.length !== 0) {
+					if (!settings.attributes[attribute].enum.includes(entry[attribute])) {
+						this.handleError(
+							new EntryValidationFailedError(
+								collection,
+								attribute,
+								'enum',
+								settings.attributes[attribute].enum,
+								entry[attribute],
+							),
+						);
 						return false;
 					} else {
 						continue;
@@ -1285,9 +1453,9 @@ class Zani {
 			}
 
 			// settings.attributes.outlier check
-			if(settings.attributes[attribute].outlier !== false) {
-				if(settings.attributes[attribute].outlier.length !== 0) {
-					if(settings.attributes[attribute].outlier.includes(entry[attribute])) {
+			if (settings.attributes[attribute].outlier !== false) {
+				if (settings.attributes[attribute].outlier.length !== 0) {
+					if (settings.attributes[attribute].outlier.includes(entry[attribute])) {
 						continue;
 					}
 				}
@@ -1295,67 +1463,97 @@ class Zani {
 
 			// settings.attributes.datatype check
 			const attributeDatatype = this.getAttributeDataType(entry[attribute]);
-			if(settings.attributes[attribute].dataType !== false) {
-				if(attributeDatatype !== settings.attributes[attribute].dataType) {
-					this.handleError(new EntryValidationFailedError(
-						collection, attribute, 'dataType', settings.attributes[attribute].dataType, attributeDatatype));
+			if (settings.attributes[attribute].dataType !== false) {
+				if (attributeDatatype !== settings.attributes[attribute].dataType) {
+					this.handleError(
+						new EntryValidationFailedError(
+							collection,
+							attribute,
+							'dataType',
+							settings.attributes[attribute].dataType,
+							attributeDatatype,
+						),
+					);
 					return false;
 				}
 			}
 
 			// settings.attributes.permitNull check
-			if(!settings.attributes[attribute].permitNull) {
-				if(attributeDatatype === 'null') {
-					this.handleError(new EntryValidationFailedError(
-						collection, attribute, 'permitNull', false, 'null'));
+			if (!settings.attributes[attribute].permitNull) {
+				if (attributeDatatype === 'null') {
+					this.handleError(
+						new EntryValidationFailedError(collection, attribute, 'permitNull', false, 'null'),
+					);
 					return false;
 				}
 			}
 
 			// settings.attributes.domain check
-			if(attributeDatatype === 'number' && settings.attributes[attribute].domain !== false) {
+			if (attributeDatatype === 'number' && settings.attributes[attribute].domain !== false) {
 				const entryVal = entry[attribute];
 				const lower = settings.attributes[attribute].domain.lower || -Infinity;
 				const upper = settings.attributes[attribute].domain.upper || Infinity;
 
-				if(entryVal<lower || entryVal > upper) {
-					this.handleError(new EntryValidationFailedError(
-						collection, attribute, 'domain', settings.attributes[attribute].domain, entry[attribute]));
+				if (entryVal < lower || entryVal > upper) {
+					this.handleError(
+						new EntryValidationFailedError(
+							collection,
+							attribute,
+							'domain',
+							settings.attributes[attribute].domain,
+							entry[attribute],
+						),
+					);
 					return false;
 				}
 			}
 
-			// settings.attributes.pattern check 
-			if(attributeDatatype === 'string' && settings.attributes[attribute].pattern !== false) {
+			// settings.attributes.pattern check
+			if (attributeDatatype === 'string' && settings.attributes[attribute].pattern !== false) {
 				const entryVal = entry[attribute];
 				const expression = new RegExp(settings.attributes[attribute].pattern);
 
-				if(!expression.test(entryVal)) {
-					this.handleError(new EntryValidationFailedError(
-						collection, attribute, 'pattern', settings.attributes[attribute].pattern, entry[attribute]));
+				if (!expression.test(entryVal)) {
+					this.handleError(
+						new EntryValidationFailedError(
+							collection,
+							attribute,
+							'pattern',
+							settings.attributes[attribute].pattern,
+							entry[attribute],
+						),
+					);
 					return false;
 				}
 			}
 
 			// settings.attribute.validator check
-			if(settings.attributes[attribute].validator !== false) {
-				try{
-					if(settings.attributes[attribute].validator(entry[attribute]) !== true) {
-						this.handleError(new EntryValidationFailedError(
-							collection, attribute, 'validator', settings.attributes[attribute].validator, entry[attribute]));
+			if (settings.attributes[attribute].validator !== false) {
+				try {
+					if (settings.attributes[attribute].validator(entry[attribute]) !== true) {
+						this.handleError(
+							new EntryValidationFailedError(
+								collection,
+								attribute,
+								'validator',
+								settings.attributes[attribute].validator,
+								entry[attribute],
+							),
+						);
 						return false;
 					}
-				} catch(err) {
+				} catch (err) {
 					this.handleError(new ValidatorFunctionError(collection, attribute, err));
 					return false;
 				}
 			}
 
 			// Settings.attribute.unique check
-			if(settings.attributes[attribute].unique) {
-				if(!this.validateEntryUnique(collection, attribute, entry[attribute])) {
-					this.handleError(new EntryValidationFailedError(
-						collection, attribute, 'unique', true, entry[attribute]));
+			if (settings.attributes[attribute].unique) {
+				if (!this.validateEntryUnique(collection, attribute, entry[attribute])) {
+					this.handleError(
+						new EntryValidationFailedError(collection, attribute, 'unique', true, entry[attribute]),
+					);
 					return false;
 				}
 			}
@@ -1368,13 +1566,13 @@ class Zani {
 	}
 
 	/** Check all values in collection of same attribute for uniqueness. Return true if unique, false otherwise.
-	 * 
+	 *
 	 * This method utilizes indexing when applicable, otherwise brute force query approaches. This method is
 	 * equivalent to the query below.
-	 * 
+	 *
 	 * @example
 	 * { attribute: {$eq: value}}
-	 * 
+	 *
 	 * @param {string} collection - The name of the collection
 	 * @param {string} attribute - The attribute to compare
 	 * @param {any} value - The value to check for
@@ -1382,11 +1580,11 @@ class Zani {
 	 */
 	validateEntryUnique(collection, attribute, value) {
 		// Indexed query
-		if(this.meta.collections[collection].indexed.includes(attribute)) {
+		if (this.meta.collections[collection].indexed.includes(attribute)) {
 			this.logger.log(`Equal to for indexed at ${attribute}, V: ${value}`);
 			const tree = new BPlusTree(this.getIndexPath(collection, attribute));
 
-			if(tree.search(value) === null) return true;
+			if (tree.search(value) === null) return true;
 			return false;
 		}
 
@@ -1398,11 +1596,10 @@ class Zani {
 
 			if (entry === null) continue;
 
-			if(entry[attribute] === value) return false;
+			if (entry[attribute] === value) return false;
 		}
 
 		return true;
-
 	}
 
 	/* -------------------------------------------------------------------------- */
@@ -1443,7 +1640,7 @@ class Zani {
 	async find(collection, query, project, sort) {
 		this.logger.log(`Starting query of ${collection}`);
 		this.emitter.emit('query_Progress', 'Query Started');
-		
+
 		const start = Date.now();
 
 		// Check if system is ready
@@ -1456,7 +1653,7 @@ class Zani {
 		var queries = { indexed: {}, notIndexed: {}, depth: [] };
 
 		// Build 2 query objects, one for the indexed values and one for the non-indexed values
-		
+
 		this.emitter.emit('query_Progress', 'Building Query');
 		if (!query) {
 			results = this.getCollection(collection);
@@ -1517,7 +1714,7 @@ class Zani {
 			if (!project.hasOwnProperty('_id')) projections.push('_id');
 		}
 
-		// Build results array		
+		// Build results array
 		this.emitter.emit('query_Progress', 'Reading Entries');
 
 		const entries = await this.batchReadEntries(collection, resultSet, this.options.fileLimit);
@@ -1564,7 +1761,7 @@ class Zani {
 
 		// if smart indexing is enabled, check through here.
 		if (this.options.smartIndexing) {
-		  	this.emitter.emit('query_Progress', 'Smart Indexing Results');
+			this.emitter.emit('query_Progress', 'Smart Indexing Results');
 			this.smartIndex(collection, query);
 
 			// Create indexes if needed
@@ -1581,11 +1778,11 @@ class Zani {
 		this.logger.log(`Query complete in ${totalTime} seconds`, this.databaseName);
 		this.emitter.emit('query_Progress', 'Query Complete');
 		this.emitter.emit('queryComplete', {
-			collection: collection, 
-			results: results, 
+			collection: collection,
+			results: results,
 			databaseName: this.databaseName,
-			time: totalTime, 
-			query: query
+			time: totalTime,
+			query: query,
 		});
 		return results;
 	}
@@ -3185,7 +3382,7 @@ class Zani {
 	 *
 	 * @param {string} collection - The name of the collection
 	 * @param {string} method - In case of error, pass calling method
-	 * 
+	 *
 	 * @returns {boolean} True if system is set and ready to be operated on, false otherwise
 	 */
 	checkForCollection(collection, method) {
@@ -3194,7 +3391,7 @@ class Zani {
 
 		// Check if a collection name was passed
 		if (!collection) {
-			this.handleError(new MissingParametersError('collection', method || "Unknown"));
+			this.handleError(new MissingParametersError('collection', method || 'Unknown'));
 			return false;
 		}
 
@@ -3203,13 +3400,21 @@ class Zani {
 
 		if (found) {
 			// Check if the collection file exists
-			const collectionPath = path.join(this.options.path, this.databaseName, 'collections', collection);
-			if (fs.existsSync(collectionPath)) 
-				return true;
+			const collectionPath = path.join(
+				this.options.path,
+				this.databaseName,
+				'collections',
+				collection,
+			);
+			if (fs.existsSync(collectionPath)) return true;
 
 			// Log an error if it exists in meta but not in file.
-			this.handleError(new CollectionFolderNotFound(collection, 
-				`${this.databaseName}\\collections\\${collection}`));
+			this.handleError(
+				new CollectionFolderNotFound(
+					collection,
+					`${this.databaseName}\\collections\\${collection}`,
+				),
+			);
 		}
 		this.handleError(new CollectionFolderNotFound(collection, method));
 		return false;
@@ -3233,7 +3438,14 @@ class Zani {
 	getEntryPath(collection, id) {
 		const folder = this.getEntryFolder(id);
 		const formattedId = String(id).padStart(6, 0);
-		return path.join(this.options.path, this.databaseName, 'collections', collection, folder, `${formattedId}.json`);
+		return path.join(
+			this.options.path,
+			this.databaseName,
+			'collections',
+			collection,
+			folder,
+			`${formattedId}.json`,
+		);
 	}
 
 	/** Return the folder name of the entry derived from the id.
@@ -3469,16 +3681,15 @@ class Zani {
 	}
 
 	/** Calculate a time from MS into Seconds.
-	 * 
+	 *
 	 * @param {number} start - The start time, in MS
 	 * @param {number} end - The end time, in MS
 	 * @returns {string} - The time elapsed in seconds
 	 */
 	calculateTime(start, end) {
-		return (end-start) / 1000;
+		return (end - start) / 1000;
 	}
 
-	
 	/* -------------------------------------------------------------------------- */
 	/*                               Set Operations                               */
 	/* -------------------------------------------------------------------------- */
@@ -3594,7 +3805,7 @@ class Zani {
 		process.off('SIGINT', this.cleanupBound);
 		process.off('SIGTERM', this.cleanupBound);
 		process.off('uncaughtException', this.cleanupBound);
-		
+
 		this.emitter.removeAllListeners();
 
 		if (this.options.crashDetector) {
@@ -3606,9 +3817,7 @@ class Zani {
 	}
 
 	handleError(error) {
-		if(this.options.throwErrors) throw error;
+		if (this.options.throwErrors) throw error;
 		else this.logger.error(error.message, this.databaseName || undefined);
 	}
 }
-
-module.exports = Zani;

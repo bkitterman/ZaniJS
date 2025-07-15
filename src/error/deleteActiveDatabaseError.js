@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from './zaniError.js';
 
 /** An error thrown when attempting to delete the current active database.
  * 
@@ -6,7 +6,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class DeleteActiveDatabaseError extends ZaniError {
+export default class DeleteActiveDatabaseError extends ZaniError {
 	/** Create a new instance of the DeleteActiveDatabaseError class.
 	 *
 	 * @example
@@ -22,5 +22,3 @@ class DeleteActiveDatabaseError extends ZaniError {
 		});
 	}
 }
-
-module.exports = DeleteActiveDatabaseError;

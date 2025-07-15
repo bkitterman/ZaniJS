@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from './zaniError.js';
 
 /** An error thrown when an operation requiring a collection is unable to locate the provided collection.
  *
@@ -6,7 +6,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class CollectionNotFoundError extends ZaniError {
+export default class CollectionNotFoundError extends ZaniError {
 	/** Create a new instance of the CollectionNotFoundError class.
 	 *
 	 * @example
@@ -24,5 +24,3 @@ class CollectionNotFoundError extends ZaniError {
 		this.collection = collection;
 	}
 }
-
-module.exports = CollectionNotFoundError;

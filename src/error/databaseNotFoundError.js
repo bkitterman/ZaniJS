@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from './zaniError.js';
 
 /** An error thrown when an operation to open a database is unable to locate the provided
  * database.
@@ -7,7 +7,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class DatabaseNotFoundError extends ZaniError {
+export default class DatabaseNotFoundError extends ZaniError {
 	/** Create a new instance of the DatabaseNotFoundError class.
 	 *
 	 * @example
@@ -25,5 +25,3 @@ class DatabaseNotFoundError extends ZaniError {
 		this.database = database;
 	}
 }
-
-module.exports = DatabaseNotFoundError;

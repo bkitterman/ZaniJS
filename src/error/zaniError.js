@@ -2,7 +2,7 @@
  * 
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class ZaniError extends Error {
+export default class ZaniError extends Error {
     /** Create a new ZaniError object.
      * 
      * @param {string} message - Message of the error
@@ -42,5 +42,3 @@ class ZaniError extends Error {
         };
     }
 }
-
-module.exports = ZaniError;

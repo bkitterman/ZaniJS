@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from './zaniError.js';
 
 /** An error thrown when a attempting to index an attribute that has already been indexed.
  * 
@@ -6,7 +6,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class AttributeAlreadyIndexedError extends ZaniError {
+export default class AttributeAlreadyIndexedError extends ZaniError {
 	/** Create a new instance of the AttributeAlreadyIndexedError class.
 	 *
 	 * @example
@@ -23,5 +23,3 @@ class AttributeAlreadyIndexedError extends ZaniError {
 		});
 	}
 }
-
-module.exports = AttributeAlreadyIndexedError;

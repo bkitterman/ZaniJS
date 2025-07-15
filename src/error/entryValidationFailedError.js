@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from './zaniError.js';
 
 /** An error thrown when a an entry, or update to an entry, failed to pass validation set by
  * the user and collection settings.
@@ -7,7 +7,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class EntryValidationFailedError extends ZaniError {
+export default class EntryValidationFailedError extends ZaniError {
 	/** Create a new instance of the EntryValidationFailedError class.
 	 *
 	 * @example
@@ -42,5 +42,3 @@ class EntryValidationFailedError extends ZaniError {
 		);
 	}
 }
-
-module.exports = EntryValidationFailedError;

@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from './zaniError.js';
 
 /** An error thrown when a required parameter is missing from a method. 
  * 
@@ -8,7 +8,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class MissingParametersError extends ZaniError {
+export default class MissingParametersError extends ZaniError {
 	/** Create a new instance of the MissingParametersError class.
 	 *
 	 * @example
@@ -25,5 +25,3 @@ class MissingParametersError extends ZaniError {
 		});
 	}
 }
-
-module.exports = MissingParametersError;

@@ -1,13 +1,13 @@
 // Node Imports
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 /**
  * The in-built logging system for ZaniJS for both console and file logging.
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class ZaniLog {
+export default class ZaniLog {
 	/* -------------------------------------------------------------------------- */
 	/*                                Global States                               */
 	/* -------------------------------------------------------------------------- */

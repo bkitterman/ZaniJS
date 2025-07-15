@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from './zaniError.js';
 
 /** An error thrown when a attempting an operation that requires a passed object has a '_id' value,
  * but has no said value.
@@ -7,7 +7,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class MissingEntryIdError extends ZaniError {
+export default class MissingEntryIdError extends ZaniError {
 	/** Create a new instance of the MissingEntryIdError class.
 	 *
 	 * @example
@@ -23,5 +23,3 @@ class MissingEntryIdError extends ZaniError {
 		});
 	}
 }
-
-module.exports = MissingEntryIdError;

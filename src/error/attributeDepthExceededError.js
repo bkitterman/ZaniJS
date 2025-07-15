@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from './zaniError.js';
 
 /** An error thrown when a attempting an operation with a max attribute depth, which the provided
  * attribute has exceeded.
@@ -7,7 +7,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class AttributeDepthExceededError extends ZaniError {
+export default class AttributeDepthExceededError extends ZaniError {
 	/** Create a new instance of the AttributeDepthExceededError class.
 	 *
 	 * @example
@@ -34,5 +34,3 @@ class AttributeDepthExceededError extends ZaniError {
 		);
 	}
 }
-
-module.exports = AttributeDepthExceededError;

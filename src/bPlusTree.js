@@ -1,6 +1,6 @@
 // Node Imports
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 /** A simple node object for a BPlusTree.
  *
@@ -32,7 +32,7 @@ class bPlusTreeNode {
  *
  * @author Brock Kitterman
  */
-class BPlusTree {
+export class BPlusTree {
 	meta = { order: null, nodeCount: null, root: null };
 
 	/** Create a new BPlustTree object. If the provided path contains a tree.json file, it will load an existing
@@ -658,5 +658,3 @@ class BPlusTree {
 		fs.writeFileSync(path.join(this.path, `tree.json`), JSON.stringify(this.meta));
 	}
 }
-
-module.exports = BPlusTree;

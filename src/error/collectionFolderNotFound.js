@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from './zaniError.js';
 
 /** An error thrown when an collection exists in the database meta.json file, but the collection does
  * not exist at the expected location in the file system.
@@ -7,7 +7,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class CollectionFolderNotFound extends ZaniError {
+export default class CollectionFolderNotFound extends ZaniError {
 	/** Create a new instance of the CollectionFolderNotFound class.
 	 *
 	 * @example
@@ -29,5 +29,3 @@ class CollectionFolderNotFound extends ZaniError {
 		this.collection = collection;
 	}
 }
-
-module.exports = CollectionFolderNotFound;

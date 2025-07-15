@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from "./zaniError.js";
 
 /** An error thrown when an operation requiring a active database is run without a active 
  * database selected or in use.
@@ -7,7 +7,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class NoActiveDatabaseError extends ZaniError {
+export default class NoActiveDatabaseError extends ZaniError {
 	/** Create a new instance of the NoActiveDatabaseError class.
 	 *
 	 * @example

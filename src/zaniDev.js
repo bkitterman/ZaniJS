@@ -1,8 +1,8 @@
 // Node Imports
-const fs = require('fs');
+import fs from 'fs';
 
 // Custom Import
-const Zani = require('./zani');
+import { Zani } from './zani.js';
 
 /** This is a basic test file for ZaniJS to ensure it is functioning as intended.
  *

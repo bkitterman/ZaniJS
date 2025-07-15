@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from "./zaniError.js";
 
 /** An error thrown when a attempting an operation on an entry or entry-aligned object, but said
  * object has no provided attributes.
@@ -7,7 +7,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class NoAttributesError extends ZaniError {
+export default class NoAttributesError extends ZaniError {
 	/** Create a new instance of the NoAttributesError class.
 	 *
 	 * @example
@@ -23,5 +23,3 @@ class NoAttributesError extends ZaniError {
 		});
 	}
 }
-
-module.exports = NoAttributesError;

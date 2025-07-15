@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from './zaniError.js';
 
 /** An error thrown when a an entry cannot be located within a collection.
  *
@@ -6,7 +6,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class EntryNotFoundError extends ZaniError {
+export default class EntryNotFoundError extends ZaniError {
 	/** Create a new instance of the EntryNotFoundError class.
 	 *
 	 * @example
@@ -24,5 +24,3 @@ class EntryNotFoundError extends ZaniError {
 		});
 	}
 }
-
-module.exports = EntryNotFoundError;

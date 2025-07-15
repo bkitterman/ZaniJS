@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from './zaniError.js';
 
 /** An error thrown when attempting to create a new collection but it already is within the system.
  * 
@@ -6,7 +6,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class CollectionAlreadyExistsError extends ZaniError {
+export default class CollectionAlreadyExistsError extends ZaniError {
 	/** Create a new instance of the CollectionAlreadyExistsError class.
 	 *
 	 * @example
@@ -23,5 +23,3 @@ class CollectionAlreadyExistsError extends ZaniError {
 		this.databaseName = databaseName;
 	}
 }
-
-module.exports = CollectionAlreadyExistsError;

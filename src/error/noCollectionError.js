@@ -1,4 +1,4 @@
-const ZaniError = require('./zaniError');
+import ZaniError from "./zaniError.js";
 
 /** An error thrown when an operation requiring a collection does not receive a collection as a parameter.
  *
@@ -6,7 +6,7 @@ const ZaniError = require('./zaniError');
  *
  * @author Brock Kitterman <brock.kitterman@gmail.com>
  */
-class NoCollectionError extends ZaniError {
+export default class NoCollectionError extends ZaniError {
 	/** Create a new instance of the NoCollectionError class.
 	 *
 	 * @example
@@ -22,5 +22,3 @@ class NoCollectionError extends ZaniError {
 		});
 	}
 }
-
-module.exports = NoCollectionError;
