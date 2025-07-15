@@ -1,5 +1,15 @@
 {
-  "dependencies": {
-    "prettier": "^3.5.3"
-  }
+	"name": "@bkitterman/zani-js",
+	"version": "1.0.0",
+	"type": "module",
+	"main": "./src/index.js",
+	"exports": {
+		".": "./src/index.js"
+	},
+	"dependencies": {
+		"prettier": "^3.5.3"
+	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com/"
+	}
 }
