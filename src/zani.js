@@ -359,11 +359,11 @@ export class Zani {
 			collection,
 		);
 
-		try{
+		try {
 			fs.mkdirSync(collectionPath);
-		}catch (err) {
-			if(err.code === 'EEXIST') {
-				this.handleError(new CollectionAlreadyExistsError(collection, this.databaseName))
+		} catch (err) {
+			if (err.code === 'EEXIST') {
+				this.handleError(new CollectionAlreadyExistsError(collection, this.databaseName));
 			}
 		}
 
@@ -499,11 +499,10 @@ export class Zani {
 		const collectionSize = this.getHighestEntryID(collection);
 		const ids = [];
 
-		for(let i = 0; i<collectionSize; i++) {
-			if(!this.meta.collections[collection].availableIDs.includes(i))
-				ids.push(i);
+		for (let i = 0; i < collectionSize; i++) {
+			if (!this.meta.collections[collection].availableIDs.includes(i)) ids.push(i);
 		}
-		
+
 		var entries = await this.batchReadEntries(collection, collectionSize, this.options.fileLimit);
 		for (const entry of entries) {
 			if (entry !== null) results.push(entry);
@@ -887,15 +886,15 @@ export class Zani {
 
 		// Read file contents
 		const filePath = this.getEntryPath(collection, id);
+		var entry = null;
+		if (fs.existsSync(filePath)) entry = JSON.parse(fs.readFileSync(filePath));
 		this.emitter.emit('entryGet', {
-			entry: entry | null,
+			entry: entry,
 			collection: collection,
 			databaseName: this.databaseName,
 		});
-		if (fs.existsSync(filePath)) return JSON.parse(fs.readFileSync(filePath));
 
-		// File does not exist due to deletion or error
-		return null;
+		return entry;
 	}
 
 	/** Internal variant of {@link Zani#getEntry} use for async purposes. It assumes perfect input
@@ -3413,7 +3412,7 @@ export class Zani {
 				'collections',
 				collection,
 			);
-			
+
 			if (fs.existsSync(collectionPath)) return true;
 
 			// Log an error if it exists in meta but not in file.
@@ -3429,21 +3428,26 @@ export class Zani {
 	}
 
 	/** Given a collection name, return the highest entry ID in the collection.
+	 * 
+	 * This will return the entry count -1 to account for entry 0. 
 	 *
 	 * @param {string} collection - Name of the collection
 	 * @returns {number} Collection max ID
 	 */
 	getHighestEntryID(collection) {
-		return this.meta.collections[collection].entries;
+		return this.meta.collections[collection].entries-1;
 	}
 
 	/** Given a collection name, return the number of entries in the collection.
-	 * 
-	 * @param {string} collection - Name of the collection 
+	 *
+	 * @param {string} collection - Name of the collection
 	 * @returns {number} - Entry Count
 	 */
 	getCollectionSize(collection) {
-		return this.meta.collections[collection].entries - this.meta.collections[collection].availableIDs.length;
+		return (
+			this.meta.collections[collection].entries -
+			this.meta.collections[collection].availableIDs.length
+		);
 	}
 
 	/** Returns the file path, including file name and extension, based on collection name and id.
