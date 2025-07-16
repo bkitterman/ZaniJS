@@ -496,9 +496,14 @@ export class Zani {
 		if (!this.checkForCollection(collection, 'getCollection')) return;
 
 		// TODO add buffer here later
-		const collectionSize = this.getCollectionSize(collection);
-		var results = [];
+		const collectionSize = this.getHighestEntryID(collection);
+		const ids = [];
 
+		for(let i = 0; i<collectionSize; i++) {
+			if(!this.meta.collections[collection].availableIDs.includes(i))
+				ids.push(i);
+		}
+		
 		var entries = await this.batchReadEntries(collection, collectionSize, this.options.fileLimit);
 		for (const entry of entries) {
 			if (entry !== null) results.push(entry);
@@ -1359,7 +1364,6 @@ export class Zani {
 		if (settings.attributeLock) {
 			const entryStructure = Object.keys(settings.attributes);
 			entryStructure.push(...['_id', '_createdOn', '_updatedOn']);
-			console.log(entryStructure);
 			var invalidKeys = [];
 
 			for (const key of entryKeys) {
@@ -1370,7 +1374,6 @@ export class Zani {
 			if (invalidKeys.length > 0) {
 				if (settings.autofillAttributes) {
 					for (const key of invalidKeys) {
-						console.log(key);
 						delete entry[key];
 					}
 				} else {
@@ -1565,8 +1568,6 @@ export class Zani {
 			}
 		}
 
-		console.log(entry);
-
 		// All validations passed, entry ready for insertion.
 		return true;
 	}
@@ -1595,7 +1596,7 @@ export class Zani {
 		}
 
 		// Non-indexed query
-		var entryCount = this.getCollectionSize(collection);
+		var entryCount = this.getHighestEntryID(collection);
 
 		for (let i = 0; i < entryCount; i++) {
 			const entry = this.getEntry(collection, i);
@@ -2310,7 +2311,7 @@ export class Zani {
 			resultIndexes = new Set(tree.getRange(-Infinity, Infinity));
 		} else {
 			var validIndexes = new Set(tree.getRange(-Infinity, Infinity));
-			var collectionSize = this.getCollectionSize(collection);
+			var collectionSize = this.getHighestEntryID(collection);
 
 			for (let i = 0; i < collectionSize; i++) {
 				if (validIndexes.has(i)) continue;
@@ -2346,7 +2347,7 @@ export class Zani {
 
 		if (Object.getOwnPropertyNames(query).length != 0) {
 			// Cycle through each entry, and compare to the query
-			var entryCount = this.getCollectionSize(collection);
+			var entryCount = this.getHighestEntryID(collection);
 			const ids = [];
 			for (let i = 0; i < entryCount; i++) {
 				ids.push(i);
@@ -3049,7 +3050,7 @@ export class Zani {
 		}
 
 		// Create set of all possible indexes
-		const collectionSize = this.getCollectionSize(collection);
+		const collectionSize = this.getHighestEntryID(collection);
 		var validIndexes = new Set();
 		for (let i = 0; i < collectionSize; i++) validIndexes.add(i);
 
@@ -3151,7 +3152,7 @@ export class Zani {
 		}
 
 		// Create set of all possible indexes
-		const collectionSize = this.getCollectionSize(collection);
+		const collectionSize = this.getHighestEntryID(collection);
 		var validIndexes = new Set();
 		for (let i = 0; i < collectionSize; i++) validIndexes.add(i);
 
@@ -3257,7 +3258,7 @@ export class Zani {
 		}
 
 		// Create set of all possible indexes
-		const collectionSize = this.getCollectionSize(collection);
+		const collectionSize = this.getHighestEntryID(collection);
 		var validIndexes = new Set();
 		for (let i = 0; i < collectionSize; i++) validIndexes.add(i);
 
@@ -3412,7 +3413,7 @@ export class Zani {
 				'collections',
 				collection,
 			);
-			this.logger.debug(collectionPath);
+			
 			if (fs.existsSync(collectionPath)) return true;
 
 			// Log an error if it exists in meta but not in file.
@@ -3427,13 +3428,22 @@ export class Zani {
 		return false;
 	}
 
-	/** Given a collection name, return the length/number of entries in the collection.
+	/** Given a collection name, return the highest entry ID in the collection.
 	 *
 	 * @param {string} collection - Name of the collection
-	 * @returns {number} Collection length
+	 * @returns {number} Collection max ID
+	 */
+	getHighestEntryID(collection) {
+		return this.meta.collections[collection].entries;
+	}
+
+	/** Given a collection name, return the number of entries in the collection.
+	 * 
+	 * @param {string} collection - Name of the collection 
+	 * @returns {number} - Entry Count
 	 */
 	getCollectionSize(collection) {
-		return this.meta.collections[collection].entries;
+		return this.meta.collections[collection].entries - this.meta.collections[collection].availableIDs.length;
 	}
 
 	/** Returns the file path, including file name and extension, based on collection name and id.
