@@ -499,11 +499,12 @@ export class Zani {
 		const collectionSize = this.getHighestEntryID(collection);
 		const ids = [];
 
-		for (let i = 0; i < collectionSize; i++) {
+		for (let i = 0; i <= collectionSize; i++) {
 			if (!this.meta.collections[collection].availableIDs.includes(i)) ids.push(i);
 		}
 
-		var entries = await this.batchReadEntries(collection, collectionSize, this.options.fileLimit);
+		var entries = await this.batchReadEntries(collection, ids, this.options.fileLimit);
+		var results = [];
 		for (const entry of entries) {
 			if (entry !== null) results.push(entry);
 		}
@@ -724,6 +725,8 @@ export class Zani {
 	 *
 	 * @param {string} collection - The collection name
 	 * @param {object} entry - The entry to add to the collection
+	 * 
+	 * @returns {number} - The entry's id.
 	 */
 	addEntry(collection, entry) {
 		// Check if system is ready
@@ -809,6 +812,8 @@ export class Zani {
 			collection: collection,
 			databaseName: this.databaseName,
 		});
+
+		return id;
 	}
 
 	/** Delete an entry from the provided collection via its entry id, which is denoted as the attribute '_id".
@@ -991,6 +996,7 @@ export class Zani {
 		}
 
 		// Ensure entry matches settings
+		const settings = this.getCollectionSettings(collection);
 		if (!this.validateEntry(collection, entry, true, settings)) return;
 
 		// Store original values for index removal post-update
